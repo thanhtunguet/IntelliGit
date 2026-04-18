@@ -5,3 +5,9 @@ src/**
 **/*.map
 **/*.ts
 .eslintrc.cjs
+.claude/
+.gitnexus/
+.idea/
+.serena
+AGENTS.md
+CLAUDE.md
