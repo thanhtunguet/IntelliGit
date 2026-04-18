@@ -8,7 +8,6 @@ import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
 import { EditorOrchestrator } from '../editor/editorOrchestrator';
-import { CommitFormProvider } from '../scm/commitFormProvider';
 
 interface QuickAction {
   label: string;
@@ -25,8 +24,7 @@ export class CommandController {
     private readonly branchProvider: {
       setFilter(value: string): void;
       refresh(): void;
-    },
-    private readonly commitForm: CommitFormProvider
+    }
   ) {}
 
   register(context: vscode.ExtensionContext): void {
@@ -53,7 +51,6 @@ export class CommandController {
 
     register('intelliGit.refresh', async () => {
       await this.state.refreshAll();
-      await this.commitForm.refresh();
       void vscode.window.setStatusBarMessage('IntelliGit refreshed', 1500);
     });
 
@@ -79,7 +76,6 @@ export class CommandController {
 
       await this.git.checkoutBranch(branchName);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.create', async () => {
@@ -101,7 +97,6 @@ export class CommandController {
       await this.git.createBranch(branchName.trim(), baseBranch);
       await this.git.checkoutBranch(branchName.trim());
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.rename', async (arg?: unknown) => {
@@ -123,7 +118,6 @@ export class CommandController {
 
       await this.git.renameBranch(from, to.trim());
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.delete', async (arg?: unknown) => {
@@ -144,7 +138,6 @@ export class CommandController {
 
       await this.git.deleteBranch(branch);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.track', async (arg?: unknown) => {
@@ -161,7 +154,6 @@ export class CommandController {
 
       await this.git.trackBranch(local, remote);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.untrack', async (arg?: unknown) => {
@@ -173,7 +165,6 @@ export class CommandController {
 
       await this.git.untrackBranch(branch);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.mergeIntoCurrent', async (arg?: unknown) => {
@@ -194,7 +185,6 @@ export class CommandController {
 
       await this.git.mergeIntoCurrent(branch);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.rebaseOnto', async (arg?: unknown) => {
@@ -215,7 +205,6 @@ export class CommandController {
 
       await this.git.rebaseCurrentOnto(onto);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.resetCurrentToCommit', async () => {
@@ -244,7 +233,6 @@ export class CommandController {
 
       await this.git.resetCurrent(target, mode as 'soft' | 'mixed' | 'hard');
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.branch.compareWithCurrent', async (arg?: unknown) => {
@@ -280,7 +268,6 @@ export class CommandController {
 
       await this.git.createStash(message, { includeUntracked, keepIndex });
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.stash.apply', async (arg?: unknown) => {
@@ -292,7 +279,6 @@ export class CommandController {
 
       await this.git.applyStash(ref, false);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.stash.pop', async (arg?: unknown) => {
@@ -304,7 +290,6 @@ export class CommandController {
 
       await this.git.applyStash(ref, true);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.stash.drop', async (arg?: unknown) => {
@@ -325,7 +310,6 @@ export class CommandController {
 
       await this.git.dropStash(ref);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.stash.rename', async (arg?: unknown) => {
@@ -345,7 +329,6 @@ export class CommandController {
 
       await this.git.renameStash(ref, message.trim());
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.stash.previewPatch', async (arg?: unknown) => {
@@ -417,7 +400,6 @@ export class CommandController {
 
       await this.git.checkoutCommit(sha);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.graph.createBranchHere', async (arg?: unknown) => {
@@ -439,7 +421,6 @@ export class CommandController {
 
       await this.git.createBranch(name.trim(), sha);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.graph.cherryPick', async (arg?: unknown) => {
@@ -451,7 +432,6 @@ export class CommandController {
 
       await this.git.cherryPick(sha);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.graph.cherryPickRange', async () => {
@@ -475,7 +455,6 @@ export class CommandController {
 
       await this.git.cherryPickRange(fromExclusive, toInclusive);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.graph.revert', async (arg?: unknown) => {
@@ -487,7 +466,6 @@ export class CommandController {
 
       await this.git.revertCommit(sha);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.graph.compareWithCurrent', async (arg?: unknown) => {
@@ -518,7 +496,6 @@ export class CommandController {
 
       await this.git.rebaseInteractive(base);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.graph.filter', async () => {
@@ -579,7 +556,6 @@ export class CommandController {
 
     register('intelliGit.graph.clearFilter', async () => {
       await this.state.clearGraphFilters();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.diff.open', async () => {
@@ -631,7 +607,6 @@ export class CommandController {
 
       void vscode.window.showInformationMessage('All conflicts resolved. Ready to commit merge.');
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.git.pushWithPreview', async () => {
@@ -647,7 +622,6 @@ export class CommandController {
 
       await this.git.push();
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.git.pullWithPreview', async () => {
@@ -663,13 +637,11 @@ export class CommandController {
 
       await this.git.pull();
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.git.fetchPrune', async () => {
       await this.git.fetchPrune();
       await this.state.refreshAll();
-      await this.commitForm.refresh();
       void vscode.window.showInformationMessage('Fetch --prune completed.');
     });
 
@@ -691,7 +663,6 @@ export class CommandController {
 
       await this.git.stagePatch(file.label);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.stage.file', async () => {
@@ -712,7 +683,6 @@ export class CommandController {
 
       await this.git.stageFile(file.label);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.unstage.file', async () => {
@@ -733,7 +703,6 @@ export class CommandController {
 
       await this.git.unstageFile(file.label);
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
 
     register('intelliGit.commit.amend', async () => {
@@ -754,39 +723,7 @@ export class CommandController {
         await this.git.amendCommit();
       }
       await this.state.refreshAll();
-      await this.commitForm.refresh();
     });
-
-    register('intelliGit.commit.create', async () => {
-      const message = this.commitForm.getCommitMessage().trim();
-      if (!message) {
-        void vscode.window.showWarningMessage('Commit message is required.');
-        return;
-      }
-
-      await this.git.commit(message);
-      this.commitForm.clearCommitMessage();
-      await this.state.refreshAll();
-      await this.commitForm.refresh();
-      void vscode.window.showInformationMessage('Commit created.');
-    });
-
-    register('intelliGit.commit.openResourceDiff', async (arg?: unknown) => {
-      await this.commitForm.openResourceDiff(arg);
-    });
-
-    register('intelliGit.commit.stageResource', async (arg?: unknown) => {
-      await this.commitForm.stageResource(arg);
-      await this.state.refreshAll();
-      await this.commitForm.refresh();
-    });
-
-    register('intelliGit.commit.unstageResource', async (arg?: unknown) => {
-      await this.commitForm.unstageResource(arg);
-      await this.state.refreshAll();
-      await this.commitForm.refresh();
-    });
-
     register('intelliGit.fileHistory.open', async () => {
       const file = this.getActiveFilePath();
       if (!file) {

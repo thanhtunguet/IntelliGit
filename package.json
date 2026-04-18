@@ -26,31 +26,19 @@
     "test": "npm run compile"
   },
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "intelliGit",
-          "title": "IntelliGit",
-          "icon": "media/intelligit.svg"
-        }
-      ]
-    },
     "views": {
-      "intelliGit": [
+      "scm": [
         {
           "id": "intelliGit.branches",
-          "name": "Branches",
-          "icon": "media/intelligit.svg"
+          "name": "Branches"
         },
         {
           "id": "intelliGit.stashes",
-          "name": "Stashes",
-          "icon": "media/intelligit.svg"
+          "name": "Stashes"
         },
         {
           "id": "intelliGit.graph",
-          "name": "Git Graph",
-          "icon": "media/intelligit.svg"
+          "name": "Git Graph"
         }
       ]
     },
@@ -234,42 +222,18 @@
       {
         "command": "intelliGit.fileBlame.open",
         "title": "Open File Blame"
-      },
-      {
-        "command": "intelliGit.commit.create",
-        "title": "Commit"
-      },
-      {
-        "command": "intelliGit.commit.openResourceDiff",
-        "title": "Open Resource Diff"
-      },
-      {
-        "command": "intelliGit.commit.stageResource",
-        "title": "Stage Resource"
-      },
-      {
-        "command": "intelliGit.commit.unstageResource",
-        "title": "Unstage Resource"
-      }
-    ],
-    "keybindings": [
-      {
-        "command": "intelliGit.commit.create",
-        "key": "ctrl+enter",
-        "mac": "cmd+enter",
-        "when": "scmInputIsInFirstLine"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "intelliGit.refresh",
-          "when": "view =~ /^intelliGit\\./",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation"
         },
         {
           "command": "intelliGit.quickActions",
-          "when": "view =~ /^intelliGit\\./",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation@1"
         }
       ],
@@ -373,21 +337,6 @@
           "command": "intelliGit.graph.compareWithCurrent",
           "when": "view == intelliGit.graph && viewItem == graphCommit",
           "group": "navigation@4"
-        },
-        {
-          "command": "intelliGit.commit.openResourceDiff",
-          "when": "scmResourceState =~ /intelliGit(Staged|Unstaged)Resource/",
-          "group": "inline"
-        },
-        {
-          "command": "intelliGit.commit.stageResource",
-          "when": "scmResourceState == intelliGitUnstagedResource",
-          "group": "navigation"
-        },
-        {
-          "command": "intelliGit.commit.unstageResource",
-          "when": "scmResourceState == intelliGitStagedResource",
-          "group": "navigation"
         }
       ]
     },

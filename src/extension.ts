@@ -8,7 +8,6 @@ import { GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
 import { GitService } from './services/gitService';
 import { getRepositoryContext } from './services/repositoryContext';
-import { CommitFormProvider } from './scm/commitFormProvider';
 import { StateStore } from './state/stateStore';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -51,9 +50,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('intelligit', virtualProvider));
 
   const editor = new EditorOrchestrator(gitService, stateStore, context.extensionUri, virtualProvider);
-  const commitForm = new CommitFormProvider(gitService, editor, logger, repositoryContext);
-  context.subscriptions.push(commitForm);
-  const commandController = new CommandController(gitService, stateStore, editor, logger, branchProvider, commitForm);
+  const commandController = new CommandController(gitService, stateStore, editor, logger, branchProvider);
   commandController.register(context);
 
   stateStore.attachAutoRefresh(context);
@@ -72,7 +69,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   try {
     await stateStore.refreshAll();
-    await commitForm.refresh();
     logger.info('IntelliGit activated.');
   } catch (error) {
     logger.error('Initial refresh failed', error);
