@@ -35,17 +35,20 @@
         {
           "id": "intelliGit.branches",
           "name": "Branches",
-          "visibility": "visible"
+          "visibility": "visible",
+          "icon": "media/intelligit.svg"
         },
         {
           "id": "intelliGit.stashes",
           "name": "Stashes",
-          "visibility": "visible"
+          "visibility": "visible",
+          "icon": "media/intelligit.svg"
         },
         {
           "id": "intelliGit.graph",
           "name": "Git Graph",
-          "visibility": "visible"
+          "visibility": "visible",
+          "icon": "media/intelligit.svg"
         }
       ]
     },
