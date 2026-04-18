@@ -17,6 +17,11 @@ export class CommitFileTreeItem extends vscode.TreeItem {
     this.resourceUri = vscode.Uri.file(path.join(workspaceRoot, filePath));
     this.description = statusBadge(status);
     this.tooltip = `${filePath}\n${statusTitle(status)}`;
+    this.command = {
+      title: 'Open Commit File Diff',
+      command: 'intelliGit.graph.openFileDiff',
+      arguments: [this]
+    };
   }
 }
 
