@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { GitService } from '../services/gitService';
 import { CompareResult, GraphCommit } from '../types';
 
 type CompareCommitAction =
@@ -21,10 +22,20 @@ interface CompareCommitActionMessage {
   readonly sha: string;
 }
 
+interface CommitClickMessage {
+  readonly type: 'commitClick';
+  readonly sha: string;
+  readonly subject: string;
+}
+
 export class CompareView {
   private readonly panel: vscode.WebviewPanel;
+  private filesPanel: vscode.WebviewPanel | undefined;
 
-  constructor(private readonly extensionUri: vscode.Uri) {
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly git: GitService
+  ) {
     this.panel = vscode.window.createWebviewPanel(
       'intelliGit.branchCompare',
       'IntelliGit: Branch Comparison',
@@ -37,6 +48,11 @@ export class CompareView {
 
     this.panel.webview.onDidReceiveMessage(async (message: unknown) => {
       await this.handleMessage(message);
+    });
+
+    this.panel.onDidDispose(() => {
+      this.filesPanel?.dispose();
+      this.filesPanel = undefined;
     });
   }
 
@@ -54,6 +70,11 @@ export class CompareView {
   }
 
   private async handleMessage(message: unknown): Promise<void> {
+    if (isCommitClickMessage(message)) {
+      await this.openFilesPanel(message.sha, message.subject);
+      return;
+    }
+
     if (!isCompareCommitActionMessage(message)) {
       return;
     }
@@ -105,14 +126,31 @@ export class CompareView {
         return;
     }
   }
+
+  private async openFilesPanel(sha: string, subject: string): Promise<void> {
+    const files = await this.git.getFilesInCommit(sha);
+
+    if (!this.filesPanel) {
+      this.filesPanel = vscode.window.createWebviewPanel(
+        'intelliGit.commitFiles',
+        `Files: ${sha.slice(0, 8)}`,
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+        { enableScripts: false, retainContextWhenHidden: true }
+      );
+      this.filesPanel.onDidDispose(() => {
+        this.filesPanel = undefined;
+      });
+    }
+
+    this.filesPanel.title = `${sha.slice(0, 8)}: ${subject}`;
+    this.filesPanel.webview.html = renderCommitFilesHtml(sha, subject, files);
+    this.filesPanel.reveal(vscode.ViewColumn.Beside, true);
+  }
 }
 
 function renderCompareHtml(result: CompareResult): string {
   const leftCommits = renderCommitRows(result.commitsOnlyLeft, 'left');
   const rightCommits = renderCommitRows(result.commitsOnlyRight, 'right');
-  const files = result.changedFiles
-    .map((file) => `<tr><td>${escapeHtml(file.status)}</td><td>${escapeHtml(file.path)}</td></tr>`)
-    .join('');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -281,16 +319,6 @@ function renderCompareHtml(result: CompareResult): string {
     </section>
   </div>
 
-  <section class="card">
-    <h2>Changed Files (${result.changedFiles.length})</h2>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Status</th><th>Path</th></tr></thead>
-        <tbody>${files || '<tr><td colspan="2">No changed files</td></tr>'}</tbody>
-      </table>
-    </div>
-  </section>
-
   <div id="commit-context-menu" class="context-menu" role="menu" aria-label="Commit context menu">
     <button class="menu-item" data-action="copyRevisionNumber">Copy Revision Number</button>
     <button class="menu-item" data-action="createPatch">Create Patch...</button>
@@ -322,6 +350,19 @@ function renderCompareHtml(result: CompareResult): string {
     const vscode = acquireVsCodeApi();
     const menu = document.getElementById('commit-context-menu');
     let selectedCommit = null;
+
+    document.addEventListener('click', (event) => {
+      if (menu.classList.contains('visible')) {
+        if (!menu.contains(event.target)) { closeMenu(); }
+        return;
+      }
+      const row = event.target && event.target.closest ? event.target.closest('.commit-row') : null;
+      if (!row) { return; }
+      const sha = row.getAttribute('data-sha') || '';
+      const subject = row.getAttribute('data-subject') || '';
+      if (!sha) { return; }
+      vscode.postMessage({ type: 'commitClick', sha, subject });
+    });
 
     const closeMenu = () => {
       menu.classList.remove('visible');
@@ -379,15 +420,6 @@ function renderCompareHtml(result: CompareResult): string {
       closeMenu();
     });
 
-    document.addEventListener('click', (event) => {
-      if (!menu.classList.contains('visible')) {
-        return;
-      }
-      if (!menu.contains(event.target)) {
-        closeMenu();
-      }
-    });
-
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         closeMenu();
@@ -411,7 +443,7 @@ function renderCommitRows(commits: GraphCommit[], side: 'left' | 'right'): strin
       const date = new Date(commit.date);
       const rel = escapeHtml(relativeTime(date));
       const full = escapeHtml(date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' }));
-      return `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="sha">${escapeHtml(commit.shortSha)}</td><td>${escapeHtml(commit.subject)}</td><td>${escapeHtml(commit.author)}</td><td class="muted" style="white-space:nowrap"><span title="${full}">${rel}</span></td></tr>`;
+      return `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-subject="${escapeHtml(commit.subject)}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="sha">${escapeHtml(commit.shortSha)}</td><td>${escapeHtml(commit.subject)}</td><td>${escapeHtml(commit.author)}</td><td class="muted" style="white-space:nowrap"><span title="${full}">${rel}</span></td></tr>`;
     })
     .join('');
 }
@@ -442,4 +474,91 @@ function isCompareCommitActionMessage(value: unknown): value is CompareCommitAct
 
   const candidate = value as Record<string, unknown>;
   return candidate.type === 'commitAction' && typeof candidate.action === 'string' && typeof candidate.sha === 'string';
+}
+
+function isCommitClickMessage(value: unknown): value is CommitClickMessage {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const c = value as Record<string, unknown>;
+  return c.type === 'commitClick' && typeof c.sha === 'string';
+}
+
+function renderCommitFilesHtml(sha: string, subject: string, files: string[]): string {
+  const tree = buildHtmlFileTree(files, '');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Commit Files</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: var(--vscode-editor-background);
+      --fg: var(--vscode-editor-foreground);
+      --muted: var(--vscode-descriptionForeground);
+      --border: var(--vscode-panel-border);
+      --accent: var(--vscode-focusBorder);
+    }
+    body {
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--fg);
+      background: var(--bg);
+      margin: 0;
+      padding: 12px 16px;
+    }
+    h2 { margin: 0 0 4px; font-size: 13px; }
+    .sha { font-family: var(--vscode-editor-font-family); color: var(--muted); font-size: 11px; margin-bottom: 12px; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { display: flex; align-items: center; gap: 4px; padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    li.folder { font-weight: 600; margin-top: 4px; cursor: default; }
+    li.file { padding-left: var(--indent, 0px); }
+    .icon { width: 16px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <h2>${escapeHtml(subject)}</h2>
+  <div class="sha">${escapeHtml(sha)}</div>
+  <ul>${tree}</ul>
+</body>
+</html>`;
+}
+
+type FileTreeNode = { type: 'folder'; name: string; children: FileTreeNode[] } | { type: 'file'; name: string; path: string };
+
+function buildHtmlFileTree(files: string[], basePath: string): string {
+  const folders = new Map<string, string[]>();
+  const leaves: string[] = [];
+
+  for (const file of files) {
+    const relative = basePath ? file.slice(basePath.length + 1) : file;
+    const slash = relative.indexOf('/');
+    if (slash === -1) {
+      leaves.push(file);
+    } else {
+      const segment = relative.slice(0, slash);
+      const childBase = basePath ? `${basePath}/${segment}` : segment;
+      const list = folders.get(childBase) ?? [];
+      list.push(file);
+      folders.set(childBase, list);
+    }
+  }
+
+  let html = '';
+  const indent = (basePath.split('/').length) * 16;
+
+  for (const [folderPath, children] of [...folders.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const name = folderPath.split('/').at(-1) ?? folderPath;
+    html += `<li class="folder" style="padding-left:${indent}px"><span class="icon">📁</span>${escapeHtml(name)}</li>`;
+    html += buildHtmlFileTree(children, folderPath);
+  }
+
+  for (const file of leaves.sort()) {
+    const name = file.split('/').at(-1) ?? file;
+    html += `<li class="file" style="--indent:${indent}px;padding-left:${indent}px" title="${escapeHtml(file)}"><span class="icon">📄</span>${escapeHtml(name)}</li>`;
+  }
+
+  return html;
 }

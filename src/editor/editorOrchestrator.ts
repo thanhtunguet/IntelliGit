@@ -104,7 +104,7 @@ export class EditorOrchestrator {
 
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
-      this.compareView = new CompareView(this.extensionUri);
+      this.compareView = new CompareView(this.extensionUri, this.git);
     }
     return this.compareView;
   }
