@@ -354,8 +354,6 @@ function renderCompareHtml(result: CompareResult): string {
 </head>
 <body>
   <h1>Branch Comparison</h1>
-  <div class="muted">${escapeHtml(result.leftRef)} vs ${escapeHtml(result.rightRef)}</div>
-
   <div class="grid">
     <section class="card">
       <h2>Only in ${escapeHtml(result.leftRef)} (${result.commitsOnlyLeft.length})</h2>
