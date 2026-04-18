@@ -4,7 +4,7 @@ import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
 import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { BranchTreeItem } from '../providers/branchTreeProvider';
-import { CommitFileTreeItem } from '../providers/commitFilesTreeProvider';
+import { CommitFileTreeItem, RevisionFileTreeItem } from '../providers/commitFilesTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
@@ -37,6 +37,8 @@ export class CommandController {
       value instanceof GraphCommitFileTreeItem ? value : undefined;
     const asCommitViewFileItem = (value: unknown): CommitFileTreeItem | undefined =>
       value instanceof CommitFileTreeItem ? value : undefined;
+    const asRevisionViewFileItem = (value: unknown): RevisionFileTreeItem | undefined =>
+      value instanceof RevisionFileTreeItem ? value : undefined;
     const toCommitSha = (value: unknown): string | undefined => {
       if (typeof value === 'string') {
         const trimmed = value.trim();
@@ -398,6 +400,15 @@ export class CommandController {
       await this.editor.openCommitFileDiffWithStatus(commitItem.sha, commitItem.filePath, commitItem.status);
     });
 
+    register('intelliGit.graph.openRepositoryFileAtRevision', async (arg?: unknown) => {
+      const item = asRevisionViewFileItem(arg);
+      if (!item) {
+        return;
+      }
+
+      await this.editor.openFileAtRevision(item.sha, item.filePath);
+    });
+
     register('intelliGit.graph.checkoutCommit', async (arg?: unknown) => {
       const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to checkout'));
       if (!sha) {
@@ -583,30 +594,7 @@ export class CommandController {
         return;
       }
 
-      const files = await this.git.getFilesAtRevision(sha);
-      if (files.length === 0) {
-        void vscode.window.showInformationMessage(`No files found at revision ${sha.slice(0, 8)}.`);
-        return;
-      }
-
-      const picked = await vscode.window.showQuickPick(
-        files.map((filePath) => ({ label: filePath })),
-        {
-          title: `Repository at ${sha.slice(0, 8)}`,
-          placeHolder: 'Pick a file to open at this revision'
-        }
-      );
-
-      if (!picked) {
-        return;
-      }
-
-      const content = await this.git.getFileContentFromRef(sha, picked.label);
-      const document = await vscode.workspace.openTextDocument({
-        language: getLanguageFromFileName(picked.label),
-        content
-      });
-      await vscode.window.showTextDocument(document, { preview: false });
+      await this.editor.showRepositoryAtRevision(sha);
     });
 
     register('intelliGit.graph.filter', async () => {
@@ -1081,39 +1069,4 @@ export class CommandController {
 
     return this.toRelativePath(uri.fsPath);
   }
-}
-
-function getLanguageFromFileName(filePath: string): string | undefined {
-  const extension = path.extname(filePath).replace('.', '').toLowerCase();
-  if (!extension) {
-    return undefined;
-  }
-
-  const lookup: Record<string, string> = {
-    ts: 'typescript',
-    tsx: 'typescriptreact',
-    js: 'javascript',
-    jsx: 'javascriptreact',
-    json: 'json',
-    md: 'markdown',
-    yml: 'yaml',
-    yaml: 'yaml',
-    sh: 'shellscript',
-    css: 'css',
-    scss: 'scss',
-    html: 'html',
-    xml: 'xml',
-    java: 'java',
-    kt: 'kotlin',
-    go: 'go',
-    rs: 'rust',
-    py: 'python',
-    rb: 'ruby',
-    php: 'php',
-    cs: 'csharp',
-    cpp: 'cpp',
-    c: 'c'
-  };
-
-  return lookup[extension];
 }

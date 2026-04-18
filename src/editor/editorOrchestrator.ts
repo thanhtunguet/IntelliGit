@@ -57,6 +57,10 @@ export class EditorOrchestrator {
     await this.openBranchCompare(commitSha, current);
   }
 
+  async showRepositoryAtRevision(sha: string): Promise<void> {
+    await this.commitFilesView.showRevision(sha);
+  }
+
   async openCommitFilesDiff(sha: string): Promise<void> {
     const files = await this.git.getFilesInCommit(sha);
     const choice = await vscode.window.showQuickPick(files, {
@@ -137,6 +141,12 @@ export class EditorOrchestrator {
       preserveFocus: true,
       viewColumn: vscode.ViewColumn.Beside
     });
+  }
+
+  async openFileAtRevision(ref: string, filePath: string): Promise<void> {
+    const uri = await this.createVirtualUri(ref, filePath);
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document, { preview: false, preserveFocus: true, viewColumn: vscode.ViewColumn.Beside });
   }
 
   private ensureCompareView(): CompareView {

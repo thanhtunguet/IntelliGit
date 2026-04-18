@@ -195,6 +195,10 @@
         "title": "Show Repository At Revision"
       },
       {
+        "command": "intelliGit.graph.openRepositoryFileAtRevision",
+        "title": "Open File At Revision"
+      },
+      {
         "command": "intelliGit.graph.goToParentCommit",
         "title": "Go To Parent Commit"
       },
@@ -391,6 +395,11 @@
         {
           "command": "intelliGit.graph.openFileDiff",
           "when": "view == intelliGit.commitView && viewItem == commitViewFile",
+          "group": "inline"
+        },
+        {
+          "command": "intelliGit.graph.openRepositoryFileAtRevision",
+          "when": "view == intelliGit.commitView && viewItem == revisionViewFile",
           "group": "inline"
         }
       ]
