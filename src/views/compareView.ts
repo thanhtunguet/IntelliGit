@@ -411,7 +411,7 @@ function renderCommitRows(commits: GraphCommit[], side: 'left' | 'right'): strin
       const date = new Date(commit.date);
       const rel = escapeHtml(relativeTime(date));
       const full = escapeHtml(date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' }));
-      return `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="sha">${escapeHtml(commit.shortSha)}</td><td>${escapeHtml(commit.subject)}</td><td>${escapeHtml(commit.author)}</td><td class="muted" style="white-space:nowrap"><span title="${iso}">${rel}</span></td></tr>`;
+      return `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="sha">${escapeHtml(commit.shortSha)}</td><td>${escapeHtml(commit.subject)}</td><td>${escapeHtml(commit.author)}</td><td class="muted" style="white-space:nowrap"><span title="${full}">${rel}</span></td></tr>`;
     })
     .join('');
 }
