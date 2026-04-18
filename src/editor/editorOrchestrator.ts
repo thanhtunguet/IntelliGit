@@ -107,18 +107,10 @@ export class EditorOrchestrator {
     const rightUri = await this.createVirtualUri(sha, filePath);
     const title = `${sha.slice(0, 8)} parent ↔ commit · ${filePath}`;
 
-    await vscode.commands.executeCommand('vscode.setEditorLayout', {
-      orientation: 0,
-      groups: [
-        { orientation: 1, groups: [{ size: 0.5 }, { size: 0.5 }], size: 0.55 },
-        { size: 0.45 }
-      ]
-    });
-
     await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title, {
       preview: false,
       preserveFocus: true,
-      viewColumn: vscode.ViewColumn.Three
+      viewColumn: vscode.ViewColumn.Beside
     });
   }
 
