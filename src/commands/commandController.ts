@@ -4,6 +4,7 @@ import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
 import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { BranchTreeItem } from '../providers/branchTreeProvider';
+import { CommitFileTreeItem } from '../providers/commitFilesTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
@@ -34,6 +35,8 @@ export class CommandController {
       value instanceof GraphCommitTreeItem ? value : undefined;
     const asGraphFileItem = (value: unknown): GraphCommitFileTreeItem | undefined =>
       value instanceof GraphCommitFileTreeItem ? value : undefined;
+    const asCommitViewFileItem = (value: unknown): CommitFileTreeItem | undefined =>
+      value instanceof CommitFileTreeItem ? value : undefined;
     const toCommitSha = (value: unknown): string | undefined => {
       if (typeof value === 'string') {
         const trimmed = value.trim();
@@ -382,11 +385,17 @@ export class CommandController {
 
     register('intelliGit.graph.openFileDiff', async (arg?: unknown) => {
       const item = asGraphFileItem(arg);
-      if (!item) {
+      if (item) {
+        await this.editor.openCommitFileDiff(item.commit.sha, item.filePath);
         return;
       }
 
-      await this.editor.openCommitFileDiff(item.commit.sha, item.filePath);
+      const commitItem = asCommitViewFileItem(arg);
+      if (!commitItem) {
+        return;
+      }
+
+      await this.editor.openCommitFileDiff(commitItem.sha, commitItem.filePath);
     });
 
     register('intelliGit.graph.checkoutCommit', async (arg?: unknown) => {
