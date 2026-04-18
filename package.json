@@ -30,8 +30,17 @@
     "test": "npm run compile"
   },
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "intelliGit",
+          "title": "IntelliGit",
+          "icon": "media/intelligit.svg"
+        }
+      ]
+    },
     "views": {
-      "scm": [
+      "intelliGit": [
         {
           "id": "intelliGit.branches",
           "name": "Branches",
