@@ -46,50 +46,182 @@
       ]
     },
     "commands": [
-      { "command": "intelliGit.refresh", "title": "IntelliGit: Refresh" },
-      { "command": "intelliGit.quickActions", "title": "IntelliGit: Quick Git Actions" },
-      { "command": "intelliGit.branch.checkout", "title": "IntelliGit: Checkout Branch" },
-      { "command": "intelliGit.branch.create", "title": "IntelliGit: Create Branch" },
-      { "command": "intelliGit.branch.rename", "title": "IntelliGit: Rename Branch" },
-      { "command": "intelliGit.branch.delete", "title": "IntelliGit: Delete Branch" },
-      { "command": "intelliGit.branch.track", "title": "IntelliGit: Track Remote Branch" },
-      { "command": "intelliGit.branch.untrack", "title": "IntelliGit: Untrack Branch" },
-      { "command": "intelliGit.branch.mergeIntoCurrent", "title": "IntelliGit: Merge Into Current" },
-      { "command": "intelliGit.branch.rebaseOnto", "title": "IntelliGit: Rebase Current Onto Branch" },
-      { "command": "intelliGit.branch.resetCurrentToCommit", "title": "IntelliGit: Reset Current Branch To Commit" },
-      { "command": "intelliGit.branch.compareWithCurrent", "title": "IntelliGit: Compare With Current Branch" },
-      { "command": "intelliGit.branch.search", "title": "IntelliGit: Search Branches" },
-      { "command": "intelliGit.stash.create", "title": "IntelliGit: Create Stash" },
-      { "command": "intelliGit.stash.apply", "title": "IntelliGit: Apply Stash" },
-      { "command": "intelliGit.stash.pop", "title": "IntelliGit: Pop Stash" },
-      { "command": "intelliGit.stash.drop", "title": "IntelliGit: Drop Stash" },
-      { "command": "intelliGit.stash.rename", "title": "IntelliGit: Rename Stash" },
-      { "command": "intelliGit.stash.previewPatch", "title": "IntelliGit: Preview Stash Patch" },
-      { "command": "intelliGit.graph.openDetails", "title": "IntelliGit: Open Commit Details" },
-      { "command": "intelliGit.graph.checkoutCommit", "title": "IntelliGit: Checkout Commit" },
-      { "command": "intelliGit.graph.createBranchHere", "title": "IntelliGit: Create Branch At Commit" },
-      { "command": "intelliGit.graph.cherryPick", "title": "IntelliGit: Cherry-pick Commit" },
-      { "command": "intelliGit.graph.cherryPickRange", "title": "IntelliGit: Cherry-pick Commit Range" },
-      { "command": "intelliGit.graph.revert", "title": "IntelliGit: Revert Commit" },
-      { "command": "intelliGit.graph.rebaseInteractiveFromHere", "title": "IntelliGit: Interactive Rebase From Commit" },
-      { "command": "intelliGit.graph.compareWithCurrent", "title": "IntelliGit: Compare Commit With Current" },
-      { "command": "intelliGit.graph.filter", "title": "IntelliGit: Filter Graph" },
-      { "command": "intelliGit.graph.clearFilter", "title": "IntelliGit: Clear Graph Filters" },
-      { "command": "intelliGit.diff.open", "title": "IntelliGit: Open Diff" },
-      { "command": "intelliGit.compare.open", "title": "IntelliGit: Compare Branches" },
-      { "command": "intelliGit.merge.openConflict", "title": "IntelliGit: Open Conflict In Merge Editor" },
-      { "command": "intelliGit.merge.next", "title": "IntelliGit: Next Conflict" },
-      { "command": "intelliGit.merge.previous", "title": "IntelliGit: Previous Conflict" },
-      { "command": "intelliGit.merge.finalize", "title": "IntelliGit: Finalize Merge Resolution" },
-      { "command": "intelliGit.git.pushWithPreview", "title": "IntelliGit: Push (Preview)" },
-      { "command": "intelliGit.git.pullWithPreview", "title": "IntelliGit: Pull (Preview)" },
-      { "command": "intelliGit.git.fetchPrune", "title": "IntelliGit: Fetch --prune" },
-      { "command": "intelliGit.stage.patch", "title": "IntelliGit: Stage Selected Hunks" },
-      { "command": "intelliGit.stage.file", "title": "IntelliGit: Stage File" },
-      { "command": "intelliGit.unstage.file", "title": "IntelliGit: Unstage File" },
-      { "command": "intelliGit.commit.amend", "title": "IntelliGit: Amend Last Commit" },
-      { "command": "intelliGit.fileHistory.open", "title": "IntelliGit: Open File History" },
-      { "command": "intelliGit.fileBlame.open", "title": "IntelliGit: Open File Blame" }
+      {
+        "command": "intelliGit.refresh",
+        "title": "IntelliGit: Refresh"
+      },
+      {
+        "command": "intelliGit.quickActions",
+        "title": "IntelliGit: Quick Git Actions"
+      },
+      {
+        "command": "intelliGit.branch.checkout",
+        "title": "IntelliGit: Checkout Branch"
+      },
+      {
+        "command": "intelliGit.branch.create",
+        "title": "IntelliGit: Create Branch"
+      },
+      {
+        "command": "intelliGit.branch.rename",
+        "title": "IntelliGit: Rename Branch"
+      },
+      {
+        "command": "intelliGit.branch.delete",
+        "title": "IntelliGit: Delete Branch"
+      },
+      {
+        "command": "intelliGit.branch.track",
+        "title": "IntelliGit: Track Remote Branch"
+      },
+      {
+        "command": "intelliGit.branch.untrack",
+        "title": "IntelliGit: Untrack Branch"
+      },
+      {
+        "command": "intelliGit.branch.mergeIntoCurrent",
+        "title": "IntelliGit: Merge Into Current"
+      },
+      {
+        "command": "intelliGit.branch.rebaseOnto",
+        "title": "IntelliGit: Rebase Current Onto Branch"
+      },
+      {
+        "command": "intelliGit.branch.resetCurrentToCommit",
+        "title": "IntelliGit: Reset Current Branch To Commit"
+      },
+      {
+        "command": "intelliGit.branch.compareWithCurrent",
+        "title": "IntelliGit: Compare With Current Branch"
+      },
+      {
+        "command": "intelliGit.branch.search",
+        "title": "IntelliGit: Search Branches"
+      },
+      {
+        "command": "intelliGit.stash.create",
+        "title": "IntelliGit: Create Stash"
+      },
+      {
+        "command": "intelliGit.stash.apply",
+        "title": "IntelliGit: Apply Stash"
+      },
+      {
+        "command": "intelliGit.stash.pop",
+        "title": "IntelliGit: Pop Stash"
+      },
+      {
+        "command": "intelliGit.stash.drop",
+        "title": "IntelliGit: Drop Stash"
+      },
+      {
+        "command": "intelliGit.stash.rename",
+        "title": "IntelliGit: Rename Stash"
+      },
+      {
+        "command": "intelliGit.stash.previewPatch",
+        "title": "IntelliGit: Preview Stash Patch"
+      },
+      {
+        "command": "intelliGit.graph.openDetails",
+        "title": "IntelliGit: Open Commit Details"
+      },
+      {
+        "command": "intelliGit.graph.checkoutCommit",
+        "title": "IntelliGit: Checkout Commit"
+      },
+      {
+        "command": "intelliGit.graph.createBranchHere",
+        "title": "IntelliGit: Create Branch At Commit"
+      },
+      {
+        "command": "intelliGit.graph.cherryPick",
+        "title": "IntelliGit: Cherry-pick Commit"
+      },
+      {
+        "command": "intelliGit.graph.cherryPickRange",
+        "title": "IntelliGit: Cherry-pick Commit Range"
+      },
+      {
+        "command": "intelliGit.graph.revert",
+        "title": "IntelliGit: Revert Commit"
+      },
+      {
+        "command": "intelliGit.graph.rebaseInteractiveFromHere",
+        "title": "IntelliGit: Interactive Rebase From Commit"
+      },
+      {
+        "command": "intelliGit.graph.compareWithCurrent",
+        "title": "IntelliGit: Compare Commit With Current"
+      },
+      {
+        "command": "intelliGit.graph.filter",
+        "title": "IntelliGit: Filter Graph"
+      },
+      {
+        "command": "intelliGit.graph.clearFilter",
+        "title": "IntelliGit: Clear Graph Filters"
+      },
+      {
+        "command": "intelliGit.diff.open",
+        "title": "IntelliGit: Open Diff"
+      },
+      {
+        "command": "intelliGit.compare.open",
+        "title": "IntelliGit: Compare Branches"
+      },
+      {
+        "command": "intelliGit.merge.openConflict",
+        "title": "IntelliGit: Open Conflict In Merge Editor"
+      },
+      {
+        "command": "intelliGit.merge.next",
+        "title": "IntelliGit: Next Conflict"
+      },
+      {
+        "command": "intelliGit.merge.previous",
+        "title": "IntelliGit: Previous Conflict"
+      },
+      {
+        "command": "intelliGit.merge.finalize",
+        "title": "IntelliGit: Finalize Merge Resolution"
+      },
+      {
+        "command": "intelliGit.git.pushWithPreview",
+        "title": "IntelliGit: Push (Preview)"
+      },
+      {
+        "command": "intelliGit.git.pullWithPreview",
+        "title": "IntelliGit: Pull (Preview)"
+      },
+      {
+        "command": "intelliGit.git.fetchPrune",
+        "title": "IntelliGit: Fetch --prune"
+      },
+      {
+        "command": "intelliGit.stage.patch",
+        "title": "IntelliGit: Stage Selected Hunks"
+      },
+      {
+        "command": "intelliGit.stage.file",
+        "title": "IntelliGit: Stage File"
+      },
+      {
+        "command": "intelliGit.unstage.file",
+        "title": "IntelliGit: Unstage File"
+      },
+      {
+        "command": "intelliGit.commit.amend",
+        "title": "IntelliGit: Amend Last Commit"
+      },
+      {
+        "command": "intelliGit.fileHistory.open",
+        "title": "IntelliGit: Open File History"
+      },
+      {
+        "command": "intelliGit.fileBlame.open",
+        "title": "IntelliGit: Open File Blame"
+      }
     ],
     "menus": {
       "view/title": [
@@ -237,6 +369,7 @@
     "@typescript-eslint/eslint-plugin": "^8.58.2",
     "@typescript-eslint/parser": "^8.58.2",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.1",
     "eslint": "^10.2.1",
     "typescript": "^6.0.3"
   }
