@@ -87,3 +87,8 @@ export interface ComparePair {
   readonly left: string;
   readonly right: string;
 }
+
+export interface CommitFileChange {
+  readonly status: string;
+  readonly path: string;
+}

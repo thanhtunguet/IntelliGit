@@ -5,6 +5,7 @@ import {
   BranchRef,
   CommitDetails,
   CompareResult,
+  CommitFileChange,
   GitCommandResult,
   GraphCommit,
   MergeConflictFile,
@@ -458,11 +459,25 @@ export class GitService {
   }
 
   async getFilesInCommit(sha: string): Promise<string[]> {
-    const result = await this.runGit(['show', '--name-only', '--pretty=format:', sha]);
+    const entries = await this.getFilesInCommitWithStatus(sha);
+    return entries.map((entry) => entry.path);
+  }
+
+  async getFilesInCommitWithStatus(sha: string): Promise<CommitFileChange[]> {
+    const result = await this.runGit(['show', '--name-status', '--pretty=format:', sha]);
     return result.stdout
       .split('\n')
       .map((line) => line.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split('\t').filter(Boolean);
+        const statusRaw = parts[0] ?? '';
+        const pathRaw = parts.at(-1) ?? '';
+        const status = (statusRaw ?? '').trim();
+        const path = (pathRaw ?? '').trim();
+        return { status, path };
+      })
+      .filter((entry) => Boolean(entry.path));
   }
 
   async getFilesChangedBetween(leftRef: string, rightRef: string): Promise<string[]> {
