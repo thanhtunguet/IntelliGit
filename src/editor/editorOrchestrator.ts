@@ -77,12 +77,7 @@ export class EditorOrchestrator {
   }
 
   async openCommitFileDiff(sha: string, filePath: string): Promise<void> {
-    await this.openDiffForFile({
-      path: filePath,
-      leftRef: `${sha}^`,
-      rightRef: sha,
-      title: `${sha.slice(0, 8)} parent ↔ commit · ${filePath}`
-    });
+    await this.openCommitFileDiffWithStatus(sha, filePath);
   }
 
   async openBranchComparisonFileDiff(leftRef: string, rightRef: string): Promise<void> {
@@ -116,6 +111,34 @@ export class EditorOrchestrator {
     });
   }
 
+  async openCommitFileDiffWithStatus(sha: string, filePath: string, status?: string): Promise<void> {
+    const title = `${sha.slice(0, 8)} parent ↔ commit · ${filePath}`;
+    const normalizedStatus = (status ?? '').trim().toUpperCase();
+
+    let leftContent = '';
+    let rightContent = '';
+
+    if (normalizedStatus !== 'A') {
+      leftContent = await this.readContentOrEmpty(`${sha}^`, filePath);
+    }
+
+    if (normalizedStatus !== 'D') {
+      rightContent = await this.readContentOrEmpty(sha, filePath);
+    }
+
+    const normalized = filePath.replaceAll(path.sep, '/');
+    const leftUri = vscode.Uri.parse(`intelligit:${encodeURIComponent(`${sha}^`)}/${normalized}`);
+    const rightUri = vscode.Uri.parse(`intelligit:${encodeURIComponent(sha)}/${normalized}`);
+    this.contentProvider.setContent(leftUri, leftContent);
+    this.contentProvider.setContent(rightUri, rightContent);
+
+    await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title, {
+      preview: false,
+      preserveFocus: true,
+      viewColumn: vscode.ViewColumn.Beside
+    });
+  }
+
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
       this.compareView = new CompareView(async (sha, subject) => {
@@ -135,5 +158,13 @@ export class EditorOrchestrator {
     const content = await this.git.getFileContentFromRef(ref, relativePath);
     this.contentProvider.setContent(uri, content);
     return uri;
+  }
+
+  private async readContentOrEmpty(ref: string, relativePath: string): Promise<string> {
+    try {
+      return await this.git.getFileContentFromRef(ref, relativePath);
+    } catch {
+      return '';
+    }
   }
 }

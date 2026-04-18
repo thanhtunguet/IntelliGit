@@ -395,7 +395,7 @@ export class CommandController {
         return;
       }
 
-      await this.editor.openCommitFileDiff(commitItem.sha, commitItem.filePath);
+      await this.editor.openCommitFileDiffWithStatus(commitItem.sha, commitItem.filePath, commitItem.status);
     });
 
     register('intelliGit.graph.checkoutCommit', async (arg?: unknown) => {

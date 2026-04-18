@@ -84,14 +84,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesProvider);
   const commandController = new CommandController(gitService, stateStore, editor, logger, branchProvider);
   commandController.register(context);
-  context.subscriptions.push(
-    vscode.commands.registerCommand('intelliGit.graph.openFileDiff', async (arg?: unknown) => {
-      if (arg instanceof CommitFileTreeItem) {
-        await editor.openCommitFileDiff(arg.sha, arg.filePath);
-      }
-    })
-  );
-
   stateStore.attachAutoRefresh(context);
 
   context.subscriptions.push(
