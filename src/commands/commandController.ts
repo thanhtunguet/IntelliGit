@@ -380,6 +380,13 @@ export class CommandController {
       await vscode.window.showTextDocument(doc, { preview: false });
     });
 
+    register('intelliGit.commitFiles.openDiff', async (sha?: unknown, filePath?: unknown) => {
+      if (typeof sha !== 'string' || typeof filePath !== 'string') {
+        return;
+      }
+      await this.editor.openCommitFileDiff(sha, filePath);
+    });
+
     register('intelliGit.graph.openFileDiff', async (arg?: unknown) => {
       const item = asGraphFileItem(arg);
       if (!item) {

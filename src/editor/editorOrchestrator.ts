@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
+import { CommitFilesTreeProvider } from '../providers/commitFilesTreeProvider';
 import { CompareView } from '../views/compareView';
 import { CompareResult } from '../types';
 import { VirtualGitContentProvider } from './virtualGitContentProvider';
@@ -13,7 +14,8 @@ export class EditorOrchestrator {
     private readonly git: GitService,
     private readonly state: StateStore,
     private readonly extensionUri: vscode.Uri,
-    private readonly contentProvider: VirtualGitContentProvider
+    private readonly contentProvider: VirtualGitContentProvider,
+    private readonly commitFilesProvider: CommitFilesTreeProvider
   ) {}
 
   async openMergeConflict(filePath: string): Promise<void> {
@@ -104,7 +106,11 @@ export class EditorOrchestrator {
 
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
-      this.compareView = new CompareView(this.extensionUri, this.git);
+      this.compareView = new CompareView(this.extensionUri, async (sha, subject) => {
+        const files = await this.git.getFilesInCommit(sha);
+        this.commitFilesProvider.showCommit(sha, files, this.git.rootPath);
+        await vscode.commands.executeCommand('intelliGit.commitFiles.focus');
+      });
     }
     return this.compareView;
   }

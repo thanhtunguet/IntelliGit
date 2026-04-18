@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { GitService } from '../services/gitService';
 import { CompareResult, GraphCommit } from '../types';
 
 type CompareCommitAction =
@@ -30,11 +29,10 @@ interface CommitClickMessage {
 
 export class CompareView {
   private readonly panel: vscode.WebviewPanel;
-  private filesPanel: vscode.WebviewPanel | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly git: GitService
+    private readonly onCommitClick: (sha: string, subject: string) => Promise<void>
   ) {
     this.panel = vscode.window.createWebviewPanel(
       'intelliGit.branchCompare',
@@ -48,11 +46,6 @@ export class CompareView {
 
     this.panel.webview.onDidReceiveMessage(async (message: unknown) => {
       await this.handleMessage(message);
-    });
-
-    this.panel.onDidDispose(() => {
-      this.filesPanel?.dispose();
-      this.filesPanel = undefined;
     });
   }
 
@@ -128,23 +121,7 @@ export class CompareView {
   }
 
   private async openFilesPanel(sha: string, subject: string): Promise<void> {
-    const files = await this.git.getFilesInCommit(sha);
-
-    if (!this.filesPanel) {
-      this.filesPanel = vscode.window.createWebviewPanel(
-        'intelliGit.commitFiles',
-        `Files: ${sha.slice(0, 8)}`,
-        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-        { enableScripts: false, retainContextWhenHidden: true }
-      );
-      this.filesPanel.onDidDispose(() => {
-        this.filesPanel = undefined;
-      });
-    }
-
-    this.filesPanel.title = `${sha.slice(0, 8)}: ${subject}`;
-    this.filesPanel.webview.html = renderCommitFilesHtml(sha, subject, files);
-    this.filesPanel.reveal(vscode.ViewColumn.Beside, true);
+    await this.onCommitClick(sha, subject);
   }
 }
 
@@ -484,81 +461,3 @@ function isCommitClickMessage(value: unknown): value is CommitClickMessage {
   return c.type === 'commitClick' && typeof c.sha === 'string';
 }
 
-function renderCommitFilesHtml(sha: string, subject: string, files: string[]): string {
-  const tree = buildHtmlFileTree(files, '');
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Commit Files</title>
-  <style>
-    :root {
-      color-scheme: light dark;
-      --bg: var(--vscode-editor-background);
-      --fg: var(--vscode-editor-foreground);
-      --muted: var(--vscode-descriptionForeground);
-      --border: var(--vscode-panel-border);
-      --accent: var(--vscode-focusBorder);
-    }
-    body {
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      color: var(--fg);
-      background: var(--bg);
-      margin: 0;
-      padding: 12px 16px;
-    }
-    h2 { margin: 0 0 4px; font-size: 13px; }
-    .sha { font-family: var(--vscode-editor-font-family); color: var(--muted); font-size: 11px; margin-bottom: 12px; }
-    ul { list-style: none; margin: 0; padding: 0; }
-    li { display: flex; align-items: center; gap: 4px; padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    li.folder { font-weight: 600; margin-top: 4px; cursor: default; }
-    li.file { padding-left: var(--indent, 0px); }
-    .icon { width: 16px; flex-shrink: 0; }
-  </style>
-</head>
-<body>
-  <h2>${escapeHtml(subject)}</h2>
-  <div class="sha">${escapeHtml(sha)}</div>
-  <ul>${tree}</ul>
-</body>
-</html>`;
-}
-
-type FileTreeNode = { type: 'folder'; name: string; children: FileTreeNode[] } | { type: 'file'; name: string; path: string };
-
-function buildHtmlFileTree(files: string[], basePath: string): string {
-  const folders = new Map<string, string[]>();
-  const leaves: string[] = [];
-
-  for (const file of files) {
-    const relative = basePath ? file.slice(basePath.length + 1) : file;
-    const slash = relative.indexOf('/');
-    if (slash === -1) {
-      leaves.push(file);
-    } else {
-      const segment = relative.slice(0, slash);
-      const childBase = basePath ? `${basePath}/${segment}` : segment;
-      const list = folders.get(childBase) ?? [];
-      list.push(file);
-      folders.set(childBase, list);
-    }
-  }
-
-  let html = '';
-  const indent = (basePath.split('/').length) * 16;
-
-  for (const [folderPath, children] of [...folders.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const name = folderPath.split('/').at(-1) ?? folderPath;
-    html += `<li class="folder" style="padding-left:${indent}px"><span class="icon">📁</span>${escapeHtml(name)}</li>`;
-    html += buildHtmlFileTree(children, folderPath);
-  }
-
-  for (const file of leaves.sort()) {
-    const name = file.split('/').at(-1) ?? file;
-    html += `<li class="file" style="--indent:${indent}px;padding-left:${indent}px" title="${escapeHtml(file)}"><span class="icon">📄</span>${escapeHtml(name)}</li>`;
-  }
-
-  return html;
-}

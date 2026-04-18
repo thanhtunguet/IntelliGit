@@ -58,10 +58,20 @@
           "name": "Git Graph",
           "visibility": "visible",
           "icon": "media/intelligit.svg"
+        },
+        {
+          "id": "intelliGit.commitFiles",
+          "name": "Commit Files",
+          "visibility": "visible",
+          "icon": "media/intelligit.svg"
         }
       ]
     },
     "commands": [
+      {
+        "command": "intelliGit.commitFiles.openDiff",
+        "title": "Open File Diff"
+      },
       {
         "command": "intelliGit.refresh",
         "title": "Refresh"

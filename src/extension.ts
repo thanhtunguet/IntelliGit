@@ -4,6 +4,7 @@ import { EditorOrchestrator } from './editor/editorOrchestrator';
 import { VirtualGitContentProvider } from './editor/virtualGitContentProvider';
 import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
+import { CommitFilesTreeProvider } from './providers/commitFilesTreeProvider';
 import { GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
 import { GitService } from './services/gitService';
@@ -35,7 +36,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
       vscode.window.createTreeView('intelliGit.branches', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.stashes', { treeDataProvider: emptyProvider }),
-      vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider })
+      vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider }),
+      vscode.window.createTreeView('intelliGit.commitFiles', { treeDataProvider: emptyProvider })
     );
     return;
   }
@@ -46,6 +48,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const branchProvider = new BranchTreeProvider(stateStore);
   const stashProvider = new StashTreeProvider(stateStore);
   const graphProvider = new GraphTreeProvider(stateStore, gitService);
+  const commitFilesProvider = new CommitFilesTreeProvider();
 
   const branchView = vscode.window.createTreeView('intelliGit.branches', {
     treeDataProvider: branchProvider,
@@ -59,13 +62,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     treeDataProvider: graphProvider,
     showCollapseAll: true
   });
+  const commitFilesView = vscode.window.createTreeView('intelliGit.commitFiles', {
+    treeDataProvider: commitFilesProvider,
+    showCollapseAll: true
+  });
 
-  context.subscriptions.push(branchView, stashView, graphView);
+  context.subscriptions.push(branchView, stashView, graphView, commitFilesView);
 
   const virtualProvider = new VirtualGitContentProvider();
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('intelligit', virtualProvider));
 
-  const editor = new EditorOrchestrator(gitService, stateStore, context.extensionUri, virtualProvider);
+  const editor = new EditorOrchestrator(gitService, stateStore, context.extensionUri, virtualProvider, commitFilesProvider);
   const commandController = new CommandController(gitService, stateStore, editor, logger, branchProvider);
   commandController.register(context);
 
