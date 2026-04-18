@@ -259,6 +259,13 @@
         "title": "Open File Blame"
       }
     ],
+    "keybindings": [
+      {
+        "command": "workbench.action.closeActiveEditor",
+        "key": "escape",
+        "when": "textCompareEditorVisible && editorTextFocus && !findWidgetVisible && !suggestWidgetVisible"
+      }
+    ],
     "menus": {
       "view/title": [
         {
