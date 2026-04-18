@@ -138,19 +138,29 @@ function renderCompareHtml(result: CompareResult): string {
       background: linear-gradient(145deg, color-mix(in srgb, var(--bg), transparent 0%), color-mix(in srgb, var(--accent), transparent 92%));
       margin: 0;
       padding: 16px;
+      height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      gap: 0;
     }
     h1 {
       margin: 0 0 4px;
       font-size: 18px;
+      flex-shrink: 0;
     }
     .muted {
       color: var(--muted);
       margin-bottom: 16px;
+      flex-shrink: 0;
     }
     .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 16px;
+      flex: 2;
+      min-height: 0;
       margin-bottom: 16px;
     }
     .card {
@@ -159,6 +169,20 @@ function renderCompareHtml(result: CompareResult): string {
       padding: 12px;
       background: color-mix(in srgb, var(--bg), white 3%);
       min-width: 0;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      flex-shrink: 0;
+    }
+    .table-wrap {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
     }
     table {
       width: 100%;
@@ -169,6 +193,12 @@ function renderCompareHtml(result: CompareResult): string {
       text-align: left;
       border-bottom: 1px solid var(--border);
       padding: 6px 4px;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: color-mix(in srgb, var(--bg), white 3%);
+      z-index: 1;
     }
     .sha {
       font-family: var(--vscode-editor-font-family);
@@ -232,27 +262,33 @@ function renderCompareHtml(result: CompareResult): string {
   <div class="grid">
     <section class="card">
       <h2>Only in ${escapeHtml(result.leftRef)} (${result.commitsOnlyLeft.length})</h2>
-      <table>
-        <thead><tr><th>SHA</th><th>Subject</th><th>Author</th></tr></thead>
-        <tbody>${leftCommits}</tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>SHA</th><th>Subject</th><th>Author</th><th>Date</th></tr></thead>
+          <tbody>${leftCommits}</tbody>
+        </table>
+      </div>
     </section>
 
     <section class="card">
       <h2>Only in ${escapeHtml(result.rightRef)} (${result.commitsOnlyRight.length})</h2>
-      <table>
-        <thead><tr><th>SHA</th><th>Subject</th><th>Author</th></tr></thead>
-        <tbody>${rightCommits}</tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>SHA</th><th>Subject</th><th>Author</th><th>Date</th></tr></thead>
+          <tbody>${rightCommits}</tbody>
+        </table>
+      </div>
     </section>
   </div>
 
   <section class="card">
     <h2>Changed Files (${result.changedFiles.length})</h2>
-    <table>
-      <thead><tr><th>Status</th><th>Path</th></tr></thead>
-      <tbody>${files || '<tr><td colspan="2">No changed files</td></tr>'}</tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Status</th><th>Path</th></tr></thead>
+        <tbody>${files || '<tr><td colspan="2">No changed files</td></tr>'}</tbody>
+      </table>
+    </div>
   </section>
 
   <div id="commit-context-menu" class="context-menu" role="menu" aria-label="Commit context menu">
@@ -367,15 +403,27 @@ function renderCompareHtml(result: CompareResult): string {
 
 function renderCommitRows(commits: GraphCommit[], side: 'left' | 'right'): string {
   if (commits.length === 0) {
-    return '<tr><td colspan="3">No commits</td></tr>';
+    return '<tr><td colspan="4">No commits</td></tr>';
   }
 
   return commits
-    .map(
-      (commit) =>
-        `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="sha">${escapeHtml(commit.shortSha)}</td><td>${escapeHtml(commit.subject)}</td><td>${escapeHtml(commit.author)}</td></tr>`
-    )
+    .map((commit) => {
+      const date = new Date(commit.date);
+      const rel = escapeHtml(relativeTime(date));
+      const full = escapeHtml(date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' }));
+      return `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="sha">${escapeHtml(commit.shortSha)}</td><td>${escapeHtml(commit.subject)}</td><td>${escapeHtml(commit.author)}</td><td class="muted" style="white-space:nowrap"><span title="${iso}">${rel}</span></td></tr>`;
+    })
     .join('');
+}
+
+function relativeTime(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function escapeHtml(value: string): string {
