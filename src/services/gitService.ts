@@ -97,6 +97,10 @@ export class GitService {
     await this.runGit(args);
   }
 
+  async createTag(name: string, ref: string): Promise<void> {
+    await this.runGit(['tag', name, ref]);
+  }
+
   async renameBranch(from: string, to: string): Promise<void> {
     await this.runGit(['branch', '-m', from, to]);
   }
@@ -321,6 +325,33 @@ export class GitService {
       body: bodyResult.stdout.trim(),
       changedFiles
     };
+  }
+
+  async getParentCommit(sha: string): Promise<string | undefined> {
+    const result = await this.runGit(['rev-list', '--parents', '-n', '1', sha]);
+    const tokens = result.stdout
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (tokens.length < 2) {
+      return undefined;
+    }
+
+    return tokens[1];
+  }
+
+  async getFilesAtRevision(ref: string): Promise<string[]> {
+    const result = await this.runGit(['ls-tree', '-r', '--name-only', ref]);
+    return result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  async getPatchForCommit(sha: string): Promise<string> {
+    const result = await this.runGit(['format-patch', '--stdout', '-1', sha]);
+    return result.stdout;
   }
 
   async getRevisionForFile(filePath: string, refSpec: string): Promise<string | undefined> {

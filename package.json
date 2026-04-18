@@ -146,6 +146,10 @@
         "title": "Create Branch At Commit"
       },
       {
+        "command": "intelliGit.graph.createTagHere",
+        "title": "Create Tag At Commit"
+      },
+      {
         "command": "intelliGit.graph.cherryPick",
         "title": "Cherry-pick Commit"
       },
@@ -164,6 +168,18 @@
       {
         "command": "intelliGit.graph.compareWithCurrent",
         "title": "Compare Commit With Current"
+      },
+      {
+        "command": "intelliGit.graph.createPatch",
+        "title": "Create Patch From Commit"
+      },
+      {
+        "command": "intelliGit.graph.showRepositoryAtRevision",
+        "title": "Show Repository At Revision"
+      },
+      {
+        "command": "intelliGit.graph.goToParentCommit",
+        "title": "Go To Parent Commit"
       },
       {
         "command": "intelliGit.graph.filter",

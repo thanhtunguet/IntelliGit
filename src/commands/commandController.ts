@@ -34,6 +34,13 @@ export class CommandController {
       value instanceof GraphCommitTreeItem ? value : undefined;
     const asGraphFileItem = (value: unknown): GraphCommitFileTreeItem | undefined =>
       value instanceof GraphCommitFileTreeItem ? value : undefined;
+    const toCommitSha = (value: unknown): string | undefined => {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed || undefined;
+      }
+      return asGraphItem(value)?.commit.sha;
+    };
 
     const register = (command: string, callback: (...args: unknown[]) => Promise<void>): void => {
       context.subscriptions.push(
@@ -207,8 +214,8 @@ export class CommandController {
       await this.state.refreshAll();
     });
 
-    register('intelliGit.branch.resetCurrentToCommit', async () => {
-      const target = await this.pickCommitSha('Pick target commit for reset');
+    register('intelliGit.branch.resetCurrentToCommit', async (arg?: unknown) => {
+      const target = toCommitSha(arg) ?? (await this.pickCommitSha('Pick target commit for reset'));
       if (!target) {
         return;
       }
@@ -383,8 +390,7 @@ export class CommandController {
     });
 
     register('intelliGit.graph.checkoutCommit', async (arg?: unknown) => {
-      const item = asGraphItem(arg);
-      const sha = item?.commit.sha ?? (await this.pickCommitSha('Pick commit to checkout'));
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to checkout'));
       if (!sha) {
         return;
       }
@@ -403,8 +409,7 @@ export class CommandController {
     });
 
     register('intelliGit.graph.createBranchHere', async (arg?: unknown) => {
-      const item = asGraphItem(arg);
-      const sha = item?.commit.sha ?? (await this.pickCommitSha('Pick commit for new branch'));
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit for new branch'));
       if (!sha) {
         return;
       }
@@ -423,9 +428,29 @@ export class CommandController {
       await this.state.refreshAll();
     });
 
+    register('intelliGit.graph.createTagHere', async (arg?: unknown) => {
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit for new tag'));
+      if (!sha) {
+        return;
+      }
+
+      const name = await vscode.window.showInputBox({
+        title: `Create tag at ${sha.slice(0, 8)}`,
+        placeHolder: 'v1.2.3',
+        validateInput: (value) => (value.trim() ? undefined : 'Tag name is required')
+      });
+
+      if (!name) {
+        return;
+      }
+
+      await this.git.createTag(name.trim(), sha);
+      await this.state.refreshAll();
+      void vscode.window.showInformationMessage(`Created tag ${name.trim()} at ${sha.slice(0, 8)}.`);
+    });
+
     register('intelliGit.graph.cherryPick', async (arg?: unknown) => {
-      const item = asGraphItem(arg);
-      const sha = item?.commit.sha ?? (await this.pickCommitSha('Pick commit to cherry-pick'));
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to cherry-pick'));
       if (!sha) {
         return;
       }
@@ -458,8 +483,7 @@ export class CommandController {
     });
 
     register('intelliGit.graph.revert', async (arg?: unknown) => {
-      const item = asGraphItem(arg);
-      const sha = item?.commit.sha ?? (await this.pickCommitSha('Pick commit to revert'));
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to revert'));
       if (!sha) {
         return;
       }
@@ -469,8 +493,7 @@ export class CommandController {
     });
 
     register('intelliGit.graph.compareWithCurrent', async (arg?: unknown) => {
-      const item = asGraphItem(arg);
-      const sha = item?.commit.sha ?? (await this.pickCommitSha('Pick commit to compare with current'));
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to compare with current'));
       if (!sha) {
         return;
       }
@@ -479,8 +502,7 @@ export class CommandController {
     });
 
     register('intelliGit.graph.rebaseInteractiveFromHere', async (arg?: unknown) => {
-      const item = asGraphItem(arg);
-      const base = item?.commit.sha ?? (await this.pickCommitSha('Pick base commit for interactive rebase'));
+      const base = toCommitSha(arg) ?? (await this.pickCommitSha('Pick base commit for interactive rebase'));
       if (!base) {
         return;
       }
@@ -496,6 +518,86 @@ export class CommandController {
 
       await this.git.rebaseInteractive(base);
       await this.state.refreshAll();
+    });
+
+    register('intelliGit.graph.goToParentCommit', async (arg?: unknown) => {
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit'));
+      if (!sha) {
+        return;
+      }
+
+      const parent = await this.git.getParentCommit(sha);
+      if (!parent) {
+        void vscode.window.showInformationMessage('This commit has no parent commit.');
+        return;
+      }
+
+      const graphCommit = this.state.graph.find((commit) => commit.sha === parent);
+      if (graphCommit) {
+        await vscode.commands.executeCommand('intelliGit.graph.openDetails', new GraphCommitTreeItem(graphCommit));
+      } else {
+        const details = await this.git.getCommitDetails(parent);
+        const doc = await vscode.workspace.openTextDocument({
+          language: 'markdown',
+          content: [
+            `# ${details.commit.shortSha} ${details.commit.subject}`,
+            '',
+            `- Author: ${details.commit.author}`,
+            `- Date: ${new Date(details.commit.date).toLocaleString()}`,
+            `- Commit: ${details.commit.sha}`,
+            '',
+            '## Message',
+            details.body
+          ].join('\n')
+        });
+        await vscode.window.showTextDocument(doc, { preview: false });
+      }
+    });
+
+    register('intelliGit.graph.createPatch', async (arg?: unknown) => {
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to export patch'));
+      if (!sha) {
+        return;
+      }
+
+      const patch = await this.git.getPatchForCommit(sha);
+      const doc = await vscode.workspace.openTextDocument({
+        language: 'diff',
+        content: patch
+      });
+      await vscode.window.showTextDocument(doc, { preview: false });
+    });
+
+    register('intelliGit.graph.showRepositoryAtRevision', async (arg?: unknown) => {
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick revision'));
+      if (!sha) {
+        return;
+      }
+
+      const files = await this.git.getFilesAtRevision(sha);
+      if (files.length === 0) {
+        void vscode.window.showInformationMessage(`No files found at revision ${sha.slice(0, 8)}.`);
+        return;
+      }
+
+      const picked = await vscode.window.showQuickPick(
+        files.map((filePath) => ({ label: filePath })),
+        {
+          title: `Repository at ${sha.slice(0, 8)}`,
+          placeHolder: 'Pick a file to open at this revision'
+        }
+      );
+
+      if (!picked) {
+        return;
+      }
+
+      const content = await this.git.getFileContentFromRef(sha, picked.label);
+      const document = await vscode.workspace.openTextDocument({
+        language: getLanguageFromFileName(picked.label),
+        content
+      });
+      await vscode.window.showTextDocument(document, { preview: false });
     });
 
     register('intelliGit.graph.filter', async () => {
@@ -969,4 +1071,39 @@ export class CommandController {
 
     return this.toRelativePath(uri.fsPath);
   }
+}
+
+function getLanguageFromFileName(filePath: string): string | undefined {
+  const extension = path.extname(filePath).replace('.', '').toLowerCase();
+  if (!extension) {
+    return undefined;
+  }
+
+  const lookup: Record<string, string> = {
+    ts: 'typescript',
+    tsx: 'typescriptreact',
+    js: 'javascript',
+    jsx: 'javascriptreact',
+    json: 'json',
+    md: 'markdown',
+    yml: 'yaml',
+    yaml: 'yaml',
+    sh: 'shellscript',
+    css: 'css',
+    scss: 'scss',
+    html: 'html',
+    xml: 'xml',
+    java: 'java',
+    kt: 'kotlin',
+    go: 'go',
+    rs: 'rust',
+    py: 'python',
+    rb: 'ruby',
+    php: 'php',
+    cs: 'csharp',
+    cpp: 'cpp',
+    c: 'c'
+  };
+
+  return lookup[extension];
 }
