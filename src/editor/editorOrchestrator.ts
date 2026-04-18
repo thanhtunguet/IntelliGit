@@ -127,6 +127,9 @@ export class EditorOrchestrator {
       this.compareView = new CompareView(this.extensionUri, this.git, async (sha, filePath) => {
         await this.openCommitFileDiffBeside(sha, filePath);
       });
+      this.compareView.onDispose(() => {
+        this.compareView = undefined;
+      });
     }
     return this.compareView;
   }

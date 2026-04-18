@@ -37,6 +37,7 @@ interface FileClickMessage {
 export class CompareView {
   private readonly panel: vscode.WebviewPanel;
   private filesPanel: vscode.WebviewPanel | undefined;
+  private disposeCallback: (() => void) | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -54,13 +55,22 @@ export class CompareView {
     );
 
     this.panel.webview.onDidReceiveMessage(async (message: unknown) => {
-      await this.handleMessage(message);
+      try {
+        await this.handleMessage(message);
+      } catch (error) {
+        void vscode.window.showErrorMessage(`IntelliGit: ${error instanceof Error ? error.message : String(error)}`);
+      }
     });
 
     this.panel.onDidDispose(() => {
       this.filesPanel?.dispose();
       this.filesPanel = undefined;
+      this.disposeCallback?.();
     });
+  }
+
+  onDispose(callback: () => void): void {
+    this.disposeCallback = callback;
   }
 
   reveal(): void {
@@ -137,17 +147,23 @@ export class CompareView {
   private async openFilesPanel(sha: string, subject: string): Promise<void> {
     const files = await this.git.getFilesInCommit(sha);
 
-    if (!this.filesPanel) {
+    const isNew = !this.filesPanel;
+
+    if (isNew) {
       this.filesPanel = vscode.window.createWebviewPanel(
         'intelliGit.commitFiles',
-        `Commit Files`,
-        vscode.ViewColumn.Beside,
+        'Commit Files',
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
         { enableScripts: true, retainContextWhenHidden: true }
       );
 
       this.filesPanel.webview.onDidReceiveMessage(async (message: unknown) => {
-        if (isFileClickMessage(message)) {
-          await this.onFileClick(message.sha, message.filePath);
+        try {
+          if (isFileClickMessage(message)) {
+            await this.onFileClick(message.sha, message.filePath);
+          }
+        } catch (error) {
+          void vscode.window.showErrorMessage(`IntelliGit: ${error instanceof Error ? error.message : String(error)}`);
         }
       });
 
@@ -156,9 +172,12 @@ export class CompareView {
       });
     }
 
-    this.filesPanel.title = `${sha.slice(0, 8)}: ${subject.slice(0, 40)}`;
-    this.filesPanel.webview.html = renderCommitFilesHtml(sha, subject, files);
-    this.filesPanel.reveal(vscode.ViewColumn.Beside, true);
+    this.filesPanel!.title = `${sha.slice(0, 8)}: ${subject.slice(0, 40)}`;
+    this.filesPanel!.webview.html = renderCommitFilesHtml(sha, subject, files);
+
+    if (!isNew) {
+      this.filesPanel!.reveal(vscode.ViewColumn.Beside, true);
+    }
   }
 }
 
