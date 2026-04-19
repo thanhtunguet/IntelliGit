@@ -104,17 +104,19 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         case 'commit':
+        case 'commitAndPush': {
+          if (this.state.operationState.kind !== 'none' && this.state.conflicts.length > 0) {
+            void vscode.window.showWarningMessage(
+              `Cannot commit: ${this.state.conflicts.length} conflict${this.state.conflicts.length === 1 ? '' : 's'} still unresolved. Resolve all conflicts first.`
+            );
+            break;
+          }
           await this.git.commit(msg.commitMessage as string);
+          if (msg.type === 'commitAndPush') { await this.git.push(); }
           await this.state.refreshAll();
           void this._view?.webview.postMessage({ type: 'clearMessage' });
           break;
-
-        case 'commitAndPush':
-          await this.git.commit(msg.commitMessage as string);
-          await this.git.push();
-          await this.state.refreshAll();
-          void this._view?.webview.postMessage({ type: 'clearMessage' });
-          break;
+        }
 
         case 'amendCommit':
           await this.git.amendCommit((msg.commitMessage as string) || undefined);

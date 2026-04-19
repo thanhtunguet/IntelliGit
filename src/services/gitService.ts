@@ -1,4 +1,7 @@
 import * as cp from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import {
@@ -850,9 +853,37 @@ export class GitService {
     return result.stdout;
   }
 
-  async openMergeEditor(path: string): Promise<void> {
-    const targetUri = vscode.Uri.file(`${this.context.rootPath}/${path}`);
-    await vscode.commands.executeCommand('vscode.openWith', targetUri, 'mergeEditor');
+  async openMergeEditor(filePath: string): Promise<void> {
+    const outputUri = vscode.Uri.file(`${this.context.rootPath}/${filePath}`);
+    try {
+      const [base, ours, theirs] = await Promise.all([
+        this.getFileStageContent(1, filePath),
+        this.getFileStageContent(2, filePath),
+        this.getFileStageContent(3, filePath)
+      ]);
+
+      const tmpDir = os.tmpdir();
+      const safe = path.basename(filePath).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const writeTemp = (suffix: string, content: string): vscode.Uri => {
+        const tmpPath = path.join(tmpDir, `intelligit_${safe}_${suffix}`);
+        fs.writeFileSync(tmpPath, content, 'utf8');
+        return vscode.Uri.file(tmpPath);
+      };
+
+      await vscode.commands.executeCommand('mergeEditor.openInput', {
+        base: { uri: writeTemp('base', base), title: 'Base' },
+        input1: { uri: writeTemp('ours', ours), title: 'Yours (Current Branch)', description: filePath },
+        input2: { uri: writeTemp('theirs', theirs), title: 'Theirs (Incoming)', description: filePath },
+        output: outputUri
+      });
+    } catch {
+      await vscode.commands.executeCommand('vscode.openWith', outputUri, 'mergeEditor');
+    }
+  }
+
+  async getFileStageContent(stage: 1 | 2 | 3, filePath: string): Promise<string> {
+    const result = await this.runGit(['show', `:${stage}:${filePath}`]);
+    return result.stdout;
   }
 
   private async getStashFileCount(ref: string): Promise<number> {
