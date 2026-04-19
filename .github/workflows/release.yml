@@ -32,6 +32,19 @@ jobs:
         id: vsix
         run: echo "file=$(ls *.vsix)" >> $GITHUB_OUTPUT
 
+      - name: Publish to VS Code Marketplace
+        run: vsce publish --no-dependencies --packagePath ${{ steps.vsix.outputs.file }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+
+      - name: Install ovsx
+        run: npm install -g ovsx
+
+      - name: Publish to Open VSX
+        run: ovsx publish ${{ steps.vsix.outputs.file }}
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
