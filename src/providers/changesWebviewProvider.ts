@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { EditorOrchestrator } from '../editor/editorOrchestrator';
 import { GitService } from '../services/gitService';
+import { ChangelistStore } from '../state/changelistStore';
+import { expandTemplate, loadTemplates } from '../state/commitTemplates';
 import { StateStore } from '../state/stateStore';
 
 export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
@@ -11,7 +13,8 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri: vscode.Uri,
     private readonly git: GitService,
     private readonly state: StateStore,
-    private readonly editor: EditorOrchestrator
+    private readonly editor: EditorOrchestrator,
+    private readonly changelists: ChangelistStore
   ) { }
 
   resolveWebviewView(
@@ -29,7 +32,16 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this._getHtml();
 
     this._disposables.push(
-      this.state.onDidChange(() => { void this._sendUpdate(); })
+      this.state.onDidChange(() => { void this._sendUpdate(); }),
+      this.changelists.onDidChange(() => { void this._sendUpdate(); }),
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (
+          e.affectsConfiguration('intelliGit.commitMessageTemplates') ||
+          e.affectsConfiguration('intelliGit.commitMessageTicketPattern')
+        ) {
+          void this._sendUpdate();
+        }
+      })
     );
 
     // Reassert the badge when the view becomes visible again; VS Code can
@@ -61,19 +73,35 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     if (!this._view) { return; }
     let headMessage = '';
     try { headMessage = await this.git.getHeadCommitMessage(); } catch { /* ignore */ }
+    let branch = '';
+    try { branch = await this.git.getCurrentBranch(); } catch { /* ignore */ }
 
     const count = this.state.changes.length;
     this._view.badge = count > 0
       ? { tooltip: `${count} change${count === 1 ? '' : 's'}`, value: count }
       : undefined;
 
+    const unstaged = this.state.unstagedChanges;
+    await this.changelists.pruneMissing(unstaged.map((c) => c.path));
+    const assignments: Record<string, string> = {};
+    for (const c of unstaged) {
+      const id = this.changelists.getChangelistIdFor(c.path);
+      if (id !== this.changelists.defaultId) {
+        assignments[c.path] = id;
+      }
+    }
+
     void this._view.webview.postMessage({
       type: 'update',
       staged: this.state.stagedChanges,
-      unstaged: this.state.unstagedChanges,
+      unstaged,
       headMessage,
+      branch,
       operation: this.state.operationState,
-      conflicts: this.state.conflicts.map((c) => c.path)
+      conflicts: this.state.conflicts.map((c) => c.path),
+      templates: loadTemplates(),
+      changelists: this.changelists.getLists(),
+      assignments
     });
   }
 
@@ -189,6 +217,89 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
         case 'operationSkip':
           await vscode.commands.executeCommand('intelliGit.operation.skip');
           break;
+
+        case 'insertTemplate': {
+          const template = String(msg.template ?? '');
+          if (!template) {
+            break;
+          }
+          let branch = '';
+          try { branch = await this.git.getCurrentBranch(); } catch { /* ignore */ }
+          const { text, cursor } = expandTemplate(template, { branch });
+          void this._view?.webview.postMessage({ type: 'applyTemplate', text, cursor });
+          break;
+        }
+
+        case 'createChangelist': {
+          const name = await vscode.window.showInputBox({
+            prompt: 'New changelist name',
+            validateInput: (v) => (v.trim().toLowerCase() === 'changes' ? '"Changes" is reserved.' : undefined)
+          });
+          if (name && name.trim()) {
+            await this.changelists.createList(name);
+          }
+          break;
+        }
+
+        case 'renameChangelist': {
+          const id = String(msg.id);
+          const current = this.changelists.findById(id);
+          if (!current || id === this.changelists.defaultId) { break; }
+          const name = await vscode.window.showInputBox({
+            prompt: 'Rename changelist',
+            value: current.name
+          });
+          if (name && name.trim()) {
+            await this.changelists.renameList(id, name);
+          }
+          break;
+        }
+
+        case 'deleteChangelist': {
+          const id = String(msg.id);
+          if (id === this.changelists.defaultId) { break; }
+          const current = this.changelists.findById(id);
+          if (!current) { break; }
+          const confirm = await vscode.window.showWarningMessage(
+            `Delete changelist "${current.name}"? Its files move to the default changelist.`,
+            { modal: true },
+            'Delete'
+          );
+          if (confirm === 'Delete') {
+            await this.changelists.deleteList(id);
+          }
+          break;
+        }
+
+        case 'assignToChangelist': {
+          const path = String(msg.path);
+          const id = String(msg.id);
+          await this.changelists.assign(path, id);
+          break;
+        }
+
+        case 'commitChangelist': {
+          const id = String(msg.id);
+          const message = String(msg.commitMessage ?? '').trim();
+          if (!message) {
+            void vscode.window.showWarningMessage('Enter a commit message first.');
+            break;
+          }
+          const unstagedPaths = this.state.unstagedChanges.map((c) => c.path);
+          const paths = unstagedPaths.filter((p) => this.changelists.getChangelistIdFor(p) === id);
+          if (paths.length === 0) {
+            void vscode.window.showWarningMessage('This changelist is empty.');
+            break;
+          }
+          if (this.state.conflicts.length > 0) {
+            void vscode.window.showWarningMessage('Resolve all conflicts before committing.');
+            break;
+          }
+          await this.git.commitOnly(message, paths);
+          await this.state.refreshAll();
+          void this._view?.webview.postMessage({ type: 'clearMessage' });
+          break;
+        }
       }
     } catch (err) {
       void vscode.window.showErrorMessage(String(err));
@@ -280,6 +391,7 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
     <button class="btn btn-sec" id="btnGen" title="Generate commit message with AI">
       <span id="genIcon">✨</span> Generate
     </button>
+    <button class="btn btn-sec" id="btnTpl" title="Insert commit message template">📝 Template</button>
     <div class="btn-grp" style="margin-left:auto">
       <button class="btn" id="btnCommit">Commit</button>
       <button class="btn" id="btnMore" title="More options">▾</button>
@@ -293,6 +405,10 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
   <div class="ditem" id="miAmend">Amend Last Commit</div>
 </div>
 
+<div class="dropdown" id="tplDropdown" style="display:none"></div>
+<div class="dropdown" id="clAssignMenu" style="display:none"></div>
+<div class="dropdown" id="clHdrMenu" style="display:none"></div>
+
 <div class="section-hdr" id="shStaged">
   <span class="chevron" id="cvStaged">▶</span>
   STAGED CHANGES
@@ -305,35 +421,20 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
   <div class="empty">No staged changes</div>
 </div>
 
-<div class="section-hdr" id="shChanges">
-  <span class="chevron" id="cvChanges">▶</span>
-  CHANGES
-  <span class="count" id="cntChanges">(0)</span>
-  <div class="hdr-actions">
-    <button class="icon-btn" id="btnStageAll" title="Stage All Changes">+</button>
-  </div>
-</div>
-<div class="section-body" id="sbChanges">
-  <div class="empty">No changes</div>
-</div>
+<div id="changelistsRoot"></div>
 
 <script>
 const vscode = acquireVsCodeApi();
 let _headMsg = '';
 
 /* ── section toggles ── */
-let stagedOpen = true, changesOpen = true;
+let stagedOpen = true;
+const clOpen = {}; // id -> boolean
 document.getElementById('shStaged').addEventListener('click', e => {
   if (e.target.closest('.hdr-actions')) return;
   stagedOpen = !stagedOpen;
   document.getElementById('sbStaged').classList.toggle('hidden', !stagedOpen);
   document.getElementById('cvStaged').classList.toggle('closed', !stagedOpen);
-});
-document.getElementById('shChanges').addEventListener('click', e => {
-  if (e.target.closest('.hdr-actions')) return;
-  changesOpen = !changesOpen;
-  document.getElementById('sbChanges').classList.toggle('hidden', !changesOpen);
-  document.getElementById('cvChanges').classList.toggle('closed', !changesOpen);
 });
 
 /* ── amend checkbox ── */
@@ -374,7 +475,13 @@ document.getElementById('btnMore').addEventListener('click', e => {
     dropEl.style.display = 'none';
   }
 });
-document.addEventListener('click', () => { dropEl.style.display = 'none'; });
+document.addEventListener('click', () => {
+  dropEl.style.display = 'none';
+  const tpl = document.getElementById('tplDropdown');
+  if (tpl) tpl.style.display = 'none';
+  const a = document.getElementById('clAssignMenu');
+  if (a) a.style.display = 'none';
+});
 document.getElementById('miCommit').addEventListener('click', () => doCommit(false));
 document.getElementById('miCommitPush').addEventListener('click', () => doCommit(true));
 document.getElementById('miAmend').addEventListener('click', () => {
@@ -391,14 +498,126 @@ document.getElementById('btnGen').addEventListener('click', () => {
 });
 
 /* ── stage/unstage all ── */
-document.getElementById('btnStageAll').addEventListener('click', e => {
-  e.stopPropagation();
-  vscode.postMessage({ type: 'stageAll' });
-});
 document.getElementById('btnUnstageAll').addEventListener('click', e => {
   e.stopPropagation();
   vscode.postMessage({ type: 'unstageAll' });
 });
+
+/* ── template dropdown ── */
+let _templates = [];
+const tplDropEl = document.getElementById('tplDropdown');
+document.getElementById('btnTpl').addEventListener('click', e => {
+  e.stopPropagation();
+  if (tplDropEl.style.display !== 'none') { tplDropEl.style.display = 'none'; return; }
+  if (_templates.length === 0) {
+    tplDropEl.innerHTML = '<div class="ditem" style="opacity:.7;cursor:default">No templates configured</div>';
+  } else {
+    tplDropEl.innerHTML = _templates.map((t, i) =>
+      '<div class="ditem" data-tpl-i="' + i + '" title="' + esc(t.template) + '">' + esc(t.label) + '</div>'
+    ).join('');
+  }
+  const r = e.currentTarget.getBoundingClientRect();
+  tplDropEl.style.top = (r.bottom + 2) + 'px';
+  tplDropEl.style.left = r.left + 'px';
+  tplDropEl.style.right = 'auto';
+  tplDropEl.style.display = 'block';
+});
+tplDropEl.addEventListener('click', e => {
+  const item = e.target.closest('[data-tpl-i]');
+  if (!item) return;
+  const idx = parseInt(item.getAttribute('data-tpl-i'), 10);
+  const tpl = _templates[idx];
+  tplDropEl.style.display = 'none';
+  if (tpl) vscode.postMessage({ type: 'insertTemplate', template: tpl.template });
+});
+
+/* ── changelist header actions ── */
+let _changelists = [{ id: 'default', name: 'Changes' }];
+let _assignments = {}; // path -> changelistId
+let _unstaged = [];
+
+document.getElementById('changelistsRoot').addEventListener('click', e => {
+  const hdrBtn = e.target.closest('[data-hdr-action]');
+  if (hdrBtn) {
+    e.stopPropagation();
+    const action = hdrBtn.getAttribute('data-hdr-action');
+    const id = hdrBtn.getAttribute('data-cl-id');
+    if (action === 'new') {
+      vscode.postMessage({ type: 'createChangelist' });
+    } else if (action === 'rename') {
+      vscode.postMessage({ type: 'renameChangelist', id });
+    } else if (action === 'delete') {
+      vscode.postMessage({ type: 'deleteChangelist', id });
+    } else if (action === 'commit') {
+      const m = document.getElementById('msg').value.trim();
+      vscode.postMessage({ type: 'commitChangelist', id, commitMessage: m });
+    }
+    return;
+  }
+  const hdr = e.target.closest('.section-hdr[data-cl-id]');
+  if (hdr) {
+    if (e.target.closest('.hdr-actions')) return;
+    const id = hdr.getAttribute('data-cl-id');
+    clOpen[id] = !(clOpen[id] !== false); // default true → toggle
+    renderChangelists();
+    return;
+  }
+  const assignBtn = e.target.closest('[data-assign-path]');
+  if (assignBtn) {
+    e.stopPropagation();
+    openAssignMenu(assignBtn);
+    return;
+  }
+  const stageAllBtn = e.target.closest('[data-stage-cl]');
+  if (stageAllBtn) {
+    e.stopPropagation();
+    const id = stageAllBtn.getAttribute('data-stage-cl');
+    for (const c of pathsInList(id)) {
+      vscode.postMessage({ type: 'stageFile', path: c });
+    }
+    return;
+  }
+});
+
+const clAssignMenu = document.getElementById('clAssignMenu');
+function openAssignMenu(btn) {
+  const path = btn.getAttribute('data-assign-path');
+  const current = _assignments[path] || 'default';
+  const items = _changelists.map(cl =>
+    '<div class="ditem" data-assign-id="' + esc(cl.id) + '" data-assign-target="' + esc(path) + '">' +
+    (cl.id === current ? '✓ ' : '  ') + esc(cl.name) +
+    '</div>'
+  ).join('') + '<div class="ditem" data-assign-new="' + esc(path) + '" style="border-top:1px solid var(--vscode-menu-border,#454545)">＋ New Changelist…</div>';
+  clAssignMenu.innerHTML = items;
+  const r = btn.getBoundingClientRect();
+  clAssignMenu.style.top = (r.bottom + 2) + 'px';
+  clAssignMenu.style.left = Math.max(4, r.right - 170) + 'px';
+  clAssignMenu.style.right = 'auto';
+  clAssignMenu.style.display = 'block';
+}
+clAssignMenu.addEventListener('click', e => {
+  const assign = e.target.closest('[data-assign-id]');
+  if (assign) {
+    e.stopPropagation();
+    const id = assign.getAttribute('data-assign-id');
+    const path = assign.getAttribute('data-assign-target');
+    clAssignMenu.style.display = 'none';
+    vscode.postMessage({ type: 'assignToChangelist', path, id });
+    return;
+  }
+  const neu = e.target.closest('[data-assign-new]');
+  if (neu) {
+    e.stopPropagation();
+    clAssignMenu.style.display = 'none';
+    vscode.postMessage({ type: 'createChangelist' });
+  }
+});
+
+function pathsInList(id) {
+  return _unstaged
+    .map(c => c.path)
+    .filter(p => (_assignments[p] || 'default') === id);
+}
 
 /* ── ctrl+enter ── */
 document.getElementById('msg').addEventListener('keydown', e => {
@@ -438,7 +657,7 @@ function renderFiles(changes, section) {
     } else if (section === 'staged') {
       actions = \`<div class="fa"><button class="icon-btn" onclick="act('unstageFile','\${ep}','\${es}','staged',event)" title="Unstage">↩</button></div>\`;
     } else {
-      actions = \`<div class="fa"><button class="icon-btn" onclick="act('stageFile','\${ep}','\${es}','unstaged',event)" title="Stage">+</button><button class="icon-btn" onclick="act('discardFile','\${ep}','\${es}','unstaged',event)" title="Discard Changes">↺</button></div>\`;
+      actions = \`<div class="fa"><button class="icon-btn" data-assign-path="\${ep}" title="Move to Changelist">⇢</button><button class="icon-btn" onclick="act('stageFile','\${ep}','\${es}','unstaged',event)" title="Stage">+</button><button class="icon-btn" onclick="act('discardFile','\${ep}','\${es}','unstaged',event)" title="Discard Changes">↺</button></div>\`;
     }
     const clickAction = isConflict ? 'openMergeEditor' : 'openDiff';
     const rowCls = isConflict ? 'file-item cf-item' : 'file-item';
@@ -481,6 +700,47 @@ function renderOperation(op, conflictCount) {
   cont.title = conflictCount > 0 ? 'Resolve all conflicts first' : '';
 }
 
+function renderChangelists() {
+  const root = document.getElementById('changelistsRoot');
+  const byList = new Map();
+  for (const cl of _changelists) byList.set(cl.id, []);
+  for (const c of _unstaged) {
+    const id = _assignments[c.path] || 'default';
+    if (byList.has(id)) byList.get(id).push(c);
+    else byList.get('default').push(c);
+  }
+  const parts = [];
+  for (const cl of _changelists) {
+    const files = byList.get(cl.id) || [];
+    const isDefault = cl.id === 'default';
+    const open = clOpen[cl.id] !== false;
+    const actions = [];
+    if (isDefault) {
+      actions.push('<button class="icon-btn" data-hdr-action="new" data-cl-id="default" title="New Changelist">＋</button>');
+    } else {
+      if (files.length > 0) {
+        actions.push('<button class="icon-btn" data-hdr-action="commit" data-cl-id="' + esc(cl.id) + '" title="Commit This Changelist">✓</button>');
+      }
+      actions.push('<button class="icon-btn" data-hdr-action="rename" data-cl-id="' + esc(cl.id) + '" title="Rename">✎</button>');
+      actions.push('<button class="icon-btn" data-hdr-action="delete" data-cl-id="' + esc(cl.id) + '" title="Delete">✕</button>');
+    }
+    actions.push('<button class="icon-btn" data-stage-cl="' + esc(cl.id) + '" title="Stage All In Changelist">↑</button>');
+    const label = isDefault ? 'CHANGES' : 'CHANGELIST · ' + esc(cl.name);
+    parts.push(
+      '<div class="section-hdr" data-cl-id="' + esc(cl.id) + '">' +
+        '<span class="chevron' + (open ? '' : ' closed') + '">▶</span>' +
+        label +
+        ' <span class="count">(' + files.length + ')</span>' +
+        '<div class="hdr-actions">' + actions.join('') + '</div>' +
+      '</div>' +
+      '<div class="section-body' + (open ? '' : ' hidden') + '">' +
+        renderFiles(files, 'unstaged') +
+      '</div>'
+    );
+  }
+  root.innerHTML = parts.join('');
+}
+
 /* ── messages from extension ── */
 window.addEventListener('message', e => {
   const m = e.data;
@@ -488,17 +748,28 @@ window.addEventListener('message', e => {
     case 'update':
       _headMsg = m.headMessage || '';
       _conflicts = new Set(m.conflicts || []);
+      _templates = Array.isArray(m.templates) ? m.templates : [];
+      _changelists = Array.isArray(m.changelists) && m.changelists.length > 0 ? m.changelists : [{ id: 'default', name: 'Changes' }];
+      _assignments = m.assignments || {};
+      _unstaged = m.unstaged || [];
       renderOperation(m.operation, _conflicts.size);
       document.getElementById('cntStaged').textContent = '(' + m.staged.length + ')';
-      document.getElementById('cntChanges').textContent = '(' + m.unstaged.length + ')';
       document.getElementById('sbStaged').innerHTML = renderFiles(m.staged, 'staged');
-      document.getElementById('sbChanges').innerHTML = renderFiles(m.unstaged, 'unstaged');
+      renderChangelists();
       break;
     case 'clearMessage':
       document.getElementById('msg').value = '';
       amendEl.checked = false;
       syncCommitBtn();
       break;
+    case 'applyTemplate': {
+      const ta = document.getElementById('msg');
+      ta.value = m.text || '';
+      ta.focus();
+      const c = Math.min(m.cursor || 0, ta.value.length);
+      try { ta.setSelectionRange(c, c); } catch (_) { /* noop */ }
+      break;
+    }
     case 'generatingMessage':
       document.getElementById('genIcon').textContent = '⟳';
       document.getElementById('genIcon').className = 'spin';

@@ -559,6 +559,29 @@
           "type": "boolean",
           "default": true,
           "description": "Show inline gutter markers for lines added, modified, or deleted relative to HEAD."
+        },
+        "intelliGit.commitMessageTemplates": {
+          "type": "array",
+          "default": [
+            { "label": "feat", "template": "feat({scope}): {cursor}" },
+            { "label": "fix", "template": "fix({scope}): {cursor}" },
+            { "label": "chore", "template": "chore: {cursor}" },
+            { "label": "ticket", "template": "[{ticket}] {cursor}" }
+          ],
+          "description": "Reusable commit message templates. Each item is {label, template}. Placeholders: {branch}, {ticket}, {scope}, {cursor}.",
+          "items": {
+            "type": "object",
+            "required": ["label", "template"],
+            "properties": {
+              "label": { "type": "string", "description": "Display label in the template menu." },
+              "template": { "type": "string", "description": "Template text. Supports {branch}, {ticket}, {scope}, {cursor}." }
+            }
+          }
+        },
+        "intelliGit.commitMessageTicketPattern": {
+          "type": "string",
+          "default": "[A-Z]+-\\d+",
+          "description": "Regular expression used to extract a ticket id from the current branch name for the {ticket} placeholder."
         }
       }
     }

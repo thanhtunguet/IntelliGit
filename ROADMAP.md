@@ -4,16 +4,6 @@ Features from the IntelliJ Git client that are not yet implemented.
 
 ---
 
-## Daily Workflow
-
-### Smart Changelists
-Group unrelated local changes into separate named buckets before committing. Each changelist can be committed independently, keeping unrelated edits from leaking into the same commit.
-
-### Commit Message Templates
-Define reusable message templates (e.g., conventional commit prefixes, ticket number patterns) that pre-populate the commit input in the Changes panel.
-
----
-
 ## Remote and Collaboration
 
 ### Pull Request Workflows (GitHub / GitLab)

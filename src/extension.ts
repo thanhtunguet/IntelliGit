@@ -13,6 +13,7 @@ import { GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
 import { GitService } from './services/gitService';
 import { getRepositoryContext } from './services/repositoryContext';
+import { ChangelistStore } from './state/changelistStore';
 import { StateStore } from './state/stateStore';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -86,11 +87,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesProvider);
 
-  const changesWebviewProvider = new ChangesWebviewProvider(context.extensionUri, gitService, stateStore, editor);
+  const changelistStore = new ChangelistStore(context.workspaceState);
+  const changesWebviewProvider = new ChangesWebviewProvider(context.extensionUri, gitService, stateStore, editor, changelistStore);
 
   const gutterController = new GutterDecorationController(gitService, stateStore, logger);
 
   context.subscriptions.push(
+    changelistStore,
     gutterController,
     branchView,
     stashView,

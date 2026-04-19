@@ -784,6 +784,15 @@ export class GitService {
     await this.runGit(['commit', '-m', message]);
   }
 
+  async commitOnly(message: string, paths: readonly string[]): Promise<void> {
+    if (paths.length === 0) {
+      throw new Error('No paths provided for changelist commit.');
+    }
+    // `git commit --only` commits only the given paths without touching previously staged
+    // changes on other files, and it stages untracked paths automatically.
+    await this.runGit(['commit', '--only', '-m', message, '--', ...paths]);
+  }
+
   async getHeadCommitMessage(): Promise<string> {
     const result = await this.runGit(['log', '-1', '--pretty=%B']);
     return result.stdout.trim();
