@@ -191,6 +191,18 @@ export class StateStore {
     gitWatcher.onDidDelete(onChange, this, context.subscriptions);
     context.subscriptions.push(gitWatcher);
 
+    // Catch commits made outside VS Code (e.g. terminal, other Git clients):
+    // when `files.watcherExclude` blocks .git/index events, the git watcher
+    // never fires. Refreshing on window-focus guarantees the badge catches up
+    // the moment the user returns to the editor.
+    context.subscriptions.push(
+      vscode.window.onDidChangeWindowState((state) => {
+        if (state.focused) {
+          void onChange();
+        }
+      })
+    );
+
     // Watch for new/deleted/modified files in the workspace to catch untracked changes.
     const folders = vscode.workspace.workspaceFolders;
     if (folders && folders.length > 0) {

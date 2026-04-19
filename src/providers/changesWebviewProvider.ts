@@ -32,6 +32,16 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
       this.state.onDidChange(() => { void this._sendUpdate(); })
     );
 
+    // Reassert the badge when the view becomes visible again; VS Code can
+    // drop badge writes that happen while a WebviewView is hidden.
+    this._disposables.push(
+      webviewView.onDidChangeVisibility(() => {
+        if (webviewView.visible) {
+          void this._sendUpdate();
+        }
+      })
+    );
+
     webviewView.webview.onDidReceiveMessage(
       async (msg: { type: string;[k: string]: unknown }) => {
         await this._handleMessage(msg);
