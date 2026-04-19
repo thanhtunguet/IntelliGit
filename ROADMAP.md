@@ -14,13 +14,6 @@ Define reusable message templates (e.g., conventional commit prefixes, ticket nu
 
 ---
 
-## Diff and Code Understanding
-
-### Inline Gutter Change Markers
-Show colored gutter decorations in the active editor for lines added, modified, or deleted relative to HEAD — without opening a full diff view. Clicking a marker would open the inline diff or revert the hunk.
-
----
-
 ## Remote and Collaboration
 
 ### Pull Request Workflows (GitHub / GitLab)

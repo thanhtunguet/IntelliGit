@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CommandController } from './commands/commandController';
 import { EditorOrchestrator } from './editor/editorOrchestrator';
+import { GutterDecorationController } from './editor/gutterDecorationController';
 import { VirtualGitContentProvider } from './editor/virtualGitContentProvider';
 import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
@@ -87,7 +88,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const changesWebviewProvider = new ChangesWebviewProvider(context.extensionUri, gitService, stateStore, editor);
 
+  const gutterController = new GutterDecorationController(gitService, stateStore, logger);
+
   context.subscriptions.push(
+    gutterController,
     branchView,
     stashView,
     graphView,
