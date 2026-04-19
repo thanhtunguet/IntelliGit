@@ -528,7 +528,7 @@ impl GitService {
                     .strip_prefix("stash@{")
                     .and_then(|s| s.strip_suffix("}"))
                     .and_then(|s| s.parse::<u32>().ok())
-                    .unwrap_or(entries.len() as u32);
+                    .unwrap_or(0);
                 let r#ref = format!("stash@{{{}}}", index);
                 let message = subject
                     .strip_prefix("On ")
@@ -554,7 +554,7 @@ impl GitService {
 
         // Populate file counts
         for entry in &mut entries {
-            let file_count = self.get_stash_file_count(&entry.r#ref).await.unwrap_or(0);
+            let file_count = self.get_stash_file_count(&entry.r#ref).await;
             entry.file_count = file_count;
         }
 
@@ -620,36 +620,33 @@ impl GitService {
         let format_arg = format!("--format={}{}", format, RECORD_SEPARATOR);
 
         let mut args = vec![
-            "log",
-            "--date=iso-strict",
-            "--decorate=full",
-            &max_count_arg,
-            &format_arg,
+            "log".to_string(),
+            "--date=iso-strict".to_string(),
+            "--decorate=full".to_string(),
+            max_count_arg,
+            format_arg,
         ];
 
         if let Some(f) = filters {
             if let Some(ref branch) = f.branch {
-                args.push(branch);
+                args.push(branch.clone());
             }
             if let Some(ref author) = f.author {
-                let author_arg = format!("--author={}", author);
-                args.push(&author_arg);
+                args.push(format!("--author={}", author));
             }
             if let Some(ref message) = f.message {
-                let message_arg = format!("--grep={}", message);
-                args.push(&message_arg);
+                args.push(format!("--grep={}", message));
             }
             if let Some(ref since) = f.since {
-                let since_arg = format!("--since={}", since);
-                args.push(&since_arg);
+                args.push(format!("--since={}", since));
             }
             if let Some(ref until) = f.until {
-                let until_arg = format!("--until={}", until);
-                args.push(&until_arg);
+                args.push(format!("--until={}", until));
             }
         }
 
-        let result = self.run_git(&args).await?;
+        let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        let result = self.run_git(&arg_refs).await?;
 
         let commits = result.stdout
             .split(RECORD_SEPARATOR)

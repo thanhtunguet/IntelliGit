@@ -310,24 +310,22 @@ fn get_recent_branches(branches: &[BranchRef], max: usize) -> Vec<BranchRef> {
 
 /// Describe a branch for display
 pub fn describe_branch(branch: &BranchRef) -> String {
-    let mut parts = Vec::new();
+    let mut parts: Vec<String> = Vec::new();
 
     if branch.current {
-        parts.push("current");
+        parts.push("current".to_string());
     }
 
     if branch.branch_type == BranchType::Remote {
-        parts.push("remote");
+        parts.push("remote".to_string());
     }
 
     if let Some(ref upstream) = branch.upstream {
-        let upstream_str = format!("upstream: {}", upstream);
-        parts.push(&upstream_str);
+        parts.push(format!("upstream: {}", upstream));
     }
 
     if branch.ahead > 0 || branch.behind > 0 {
-        let ahead_behind_str = format!("▲{} ▼{}", branch.ahead, branch.behind);
-        parts.push(&ahead_behind_str);
+        parts.push(format!("▲{} ▼{}", branch.ahead, branch.behind));
     }
 
     parts.join(" · ")
