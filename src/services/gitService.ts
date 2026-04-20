@@ -34,6 +34,15 @@ export class GitService {
     return this.context.rootPath;
   }
 
+  /**
+   * Synchronous accessor for the resolved git root. Falls back to the workspace
+   * root until {@link getGitRoot} has populated the cache (done during activate).
+   * All path arguments passed to git commands must be relative to this path.
+   */
+  get gitRoot(): string {
+    return this._gitRootCache ?? this.context.rootPath;
+  }
+
   async getGitRoot(): Promise<string> {
     if (this._gitRootCache !== undefined) {
       return this._gitRootCache;
@@ -45,6 +54,19 @@ export class GitService {
       this._gitRootCache = this.context.rootPath;
     }
     return this._gitRootCache;
+  }
+
+  /**
+   * Converts an absolute fsPath to a git-root-relative path with forward slashes,
+   * suitable for passing to any git command (pathspec or index lookup).
+   * Returns undefined if the path is outside the git root.
+   */
+  toRepoRelative(absolutePath: string): string | undefined {
+    const rel = path.relative(this.gitRoot, absolutePath);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+      return undefined;
+    }
+    return rel.split(path.sep).join('/');
   }
 
   async isRepo(): Promise<boolean> {
@@ -325,7 +347,7 @@ export class GitService {
       const result = await this.runGit(['rev-parse', '--git-dir']);
       const raw = result.stdout.trim();
       if (!raw) { return undefined; }
-      const resolved = raw.startsWith('/') ? raw : `${this.context.rootPath}/${raw}`;
+      const resolved = path.isAbsolute(raw) ? raw : path.join(this.gitRoot, raw);
       this._gitDirCache = resolved;
       return resolved;
     } catch {
@@ -881,7 +903,7 @@ export class GitService {
   }
 
   async openMergeEditor(filePath: string): Promise<void> {
-    const outputUri = vscode.Uri.file(`${this.context.rootPath}/${filePath}`);
+    const outputUri = vscode.Uri.file(path.join(this.gitRoot, filePath));
     try {
       const [base, ours, theirs] = await Promise.all([
         this.getFileStageContent(1, filePath),
@@ -951,7 +973,7 @@ export class GitService {
 
     return new Promise<GitCommandResult>((resolve, reject) => {
       const child = cp.spawn(gitPath, args, {
-        cwd: this.context.rootPath,
+        cwd: this.gitRoot,
         windowsHide: true
       });
 
@@ -1014,7 +1036,7 @@ export class GitService {
 
     return new Promise<GitCommandResult>((resolve, reject) => {
       const child = cp.spawn(gitPath, args, {
-        cwd: this.context.rootPath,
+        cwd: this.gitRoot,
         windowsHide: true
       });
 

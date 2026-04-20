@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { EditorOrchestrator } from '../editor/editorOrchestrator';
 import { confirmDangerousAction } from '../guards';
@@ -1256,9 +1255,10 @@ export class CommandController {
   private async pickFileFromWorkspace(title: string): Promise<string | undefined> {
     const files = await vscode.workspace.findFiles('**/*', '**/.git/**', 500);
     const picked = await vscode.window.showQuickPick(
-      files.map((uri) => ({
-        label: this.toRelativePath(uri.fsPath)
-      })),
+      files
+        .map((uri) => this.git.toRepoRelative(uri.fsPath))
+        .filter((rel): rel is string => Boolean(rel))
+        .map((label) => ({ label })),
       {
         title,
         matchOnDescription: true
@@ -1268,15 +1268,6 @@ export class CommandController {
     return picked?.label;
   }
 
-  private toRelativePath(absolutePath: string): string {
-    const folders = vscode.workspace.workspaceFolders;
-    if (!folders || folders.length === 0) {
-      return absolutePath;
-    }
-
-    return path.relative(folders[0].uri.fsPath, absolutePath).replaceAll('\\', '/');
-  }
-
   private getActiveFilePath(): string | undefined {
     const editor = vscode.window.activeTextEditor;
     const uri = editor?.document.uri;
@@ -1284,7 +1275,7 @@ export class CommandController {
       return undefined;
     }
 
-    return this.toRelativePath(uri.fsPath);
+    return this.git.toRepoRelative(uri.fsPath);
   }
 
   private async resolveSelectedCommitFiles(

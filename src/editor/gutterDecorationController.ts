@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import { GitService } from '../services/gitService';
@@ -57,7 +56,7 @@ export class GutterDecorationController implements vscode.Disposable {
       vscode.workspace.onDidCloseTextDocument((doc) => {
         this.headCache.delete(doc.uri.toString());
       }),
-      stateStore.onDidChange(() => {
+      this.stateStore.onDidChange(() => {
         void this.refreshHeadSha().then(() => this.updateAllVisible());
       }),
       vscode.workspace.onDidChangeConfiguration((event) => {
@@ -171,12 +170,7 @@ export class GutterDecorationController implements vscode.Disposable {
   }
 
   private getRelativePath(uri: vscode.Uri): string | undefined {
-    const root = this.gitService.rootPath;
-    const rel = path.relative(root, uri.fsPath);
-    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
-      return undefined;
-    }
-    return rel.split(path.sep).join('/');
+    return this.gitService.toRepoRelative(uri.fsPath);
   }
 
   private applyHunks(editor: vscode.TextEditor, hunks: LineHunk[]): void {
