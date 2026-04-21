@@ -667,7 +667,11 @@ export class GitService {
       }));
   }
 
-  async stashFiles(paths: string[], message: string, options: { keepIndex: boolean }): Promise<void> {
+  async stashFiles(
+    paths: string[],
+    message: string,
+    options: { keepIndex: boolean; includeUntracked?: boolean }
+  ): Promise<void> {
     const filtered = [...new Set(paths.map((value) => value.trim()).filter(Boolean))];
     if (filtered.length === 0) {
       return;
@@ -676,6 +680,9 @@ export class GitService {
     const args = ['stash', 'push', '-m', message];
     if (options.keepIndex) {
       args.push('--keep-index');
+    }
+    if (options.includeUntracked) {
+      args.push('--include-untracked');
     }
     args.push('--', ...filtered);
     await this.runGit(args);

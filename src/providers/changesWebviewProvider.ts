@@ -72,6 +72,11 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     for (const d of this._disposables) { d.dispose(); }
   }
 
+  private _asPaths(value: unknown): string[] {
+    if (!Array.isArray(value)) { return []; }
+    return [...new Set(value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0))];
+  }
+
   toggleViewMode(): void {
     this.viewMode = this.viewMode === 'tree' ? 'list' : 'tree';
     void this._sendUpdate();
@@ -157,6 +162,61 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
             await this.git.discardFile(filePath, change?.status === '??');
             await this.state.refreshChanges();
           }
+          break;
+        }
+
+        case 'stageFiles': {
+          const paths = this._asPaths(msg.paths);
+          if (paths.length === 0) { break; }
+          for (const p of paths) { await this.git.stageFile(p); }
+          await this.state.refreshChanges();
+          break;
+        }
+
+        case 'unstageFiles': {
+          const paths = this._asPaths(msg.paths);
+          if (paths.length === 0) { break; }
+          for (const p of paths) { await this.git.unstageFile(p); }
+          await this.state.refreshChanges();
+          break;
+        }
+
+        case 'discardFiles': {
+          const paths = this._asPaths(msg.paths);
+          if (paths.length === 0) { break; }
+          const confirm = await vscode.window.showWarningMessage(
+            paths.length === 1
+              ? `Discard changes to ${paths[0]}?`
+              : `Discard changes to ${paths.length} files?`,
+            { modal: true },
+            'Discard'
+          );
+          if (confirm !== 'Discard') { break; }
+          for (const p of paths) {
+            const change = this.state.changes.find((c) => c.path === p);
+            await this.git.discardFile(p, change?.status === '??');
+          }
+          await this.state.refreshChanges();
+          break;
+        }
+
+        case 'shelveFiles': {
+          const paths = this._asPaths(msg.paths);
+          if (paths.length === 0) { break; }
+          const stashMessage = (await vscode.window.showInputBox({
+            title: paths.length === 1 ? `Shelve ${paths[0]}` : `Shelve ${paths.length} files`,
+            value: 'Shelved changes',
+            placeHolder: 'Shelve message'
+          }))?.trim();
+          if (!stashMessage) { break; }
+          const includeUntracked = this.state.changes.some(
+            (c) => paths.includes(c.path) && c.status === '??'
+          );
+          await this.git.stashFiles(paths, stashMessage, { keepIndex: false, includeUntracked });
+          await this.state.refreshAll();
+          void vscode.window.showInformationMessage(
+            `Shelved ${paths.length} file${paths.length === 1 ? '' : 's'}.`
+          );
           break;
         }
 
@@ -400,11 +460,17 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 .mini-btn{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);border:none;border-radius:2px;padding:2px 8px;cursor:pointer;font-size:11px;font-family:var(--vscode-font-family);line-height:1.5}
 .mini-btn:hover{background:var(--vscode-button-secondaryHoverBackground)}
 .mini-btn:disabled{opacity:.5;cursor:default}
-.file-item{display:flex;align-items:center;padding:2px 8px;cursor:pointer;gap:4px;min-height:22px}
+.file-item{display:flex;align-items:center;padding:2px 8px;cursor:pointer;gap:4px;min-height:22px;user-select:none}
 .file-item:hover{background:var(--vscode-list-hoverBackground)}
 .file-item:hover .fa{opacity:1}
-.folder-item{display:flex;align-items:center;padding:2px 8px;cursor:pointer;gap:4px;min-height:22px}
+.file-item.selected{background:var(--vscode-list-inactiveSelectionBackground);color:var(--vscode-list-inactiveSelectionForeground)}
+.file-item.selected:focus,.file-item.selected.active{background:var(--vscode-list-activeSelectionBackground);color:var(--vscode-list-activeSelectionForeground)}
+.folder-item{display:flex;align-items:center;padding:2px 8px;cursor:pointer;gap:4px;min-height:22px;user-select:none}
 .folder-item:hover{background:var(--vscode-list-hoverBackground)}
+.ditem.separator{height:1px;padding:0;background:var(--vscode-menu-separatorBackground,var(--vscode-menu-border,#454545));cursor:default;margin:4px 0}
+.ditem.separator:hover{background:var(--vscode-menu-separatorBackground,var(--vscode-menu-border,#454545))}
+.ditem.disabled{opacity:.5;cursor:default}
+.ditem.disabled:hover{background:transparent;color:var(--vscode-menu-foreground)}
 .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fdir{font-size:11px;color:var(--vscode-descriptionForeground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40%;flex-shrink:0}
 .badge{font-size:10px;font-weight:700;width:14px;text-align:center;flex-shrink:0}
@@ -474,6 +540,7 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 <div class="dropdown" id="tplDropdown" style="display:none"></div>
 <div class="dropdown" id="clAssignMenu" style="display:none"></div>
 <div class="dropdown" id="clHdrMenu" style="display:none"></div>
+<div class="dropdown" id="ctxMenu" style="display:none"></div>
 
 <div class="section-hdr" id="shStaged">
   <span class="chevron" id="cvStaged">▶</span>
@@ -548,6 +615,8 @@ document.addEventListener('click', () => {
   if (tpl) tpl.style.display = 'none';
   const a = document.getElementById('clAssignMenu');
   if (a) a.style.display = 'none';
+  const ctx = document.getElementById('ctxMenu');
+  if (ctx) ctx.style.display = 'none';
 });
 document.getElementById('miCommit').addEventListener('click', () => doCommit(false));
 document.getElementById('miCommitPush').addEventListener('click', () => doCommit(true));
@@ -783,9 +852,10 @@ function renderFileRow(c, section, depth) {
   } else {
     actions = \`<div class="fa"><button class="icon-btn" data-assign-path="\${ep}" title="Move to Changelist">⇢</button><button class="icon-btn" onclick="act('stageFile','\${ep}','\${es}','unstaged',event)" title="Stage">+</button><button class="icon-btn" onclick="act('discardFile','\${ep}','\${es}','unstaged',event)" title="Discard Changes">↺</button></div>\`;
   }
-  const clickAction = isConflict ? 'openMergeEditor' : 'openDiff';
-  const rowCls = isConflict ? 'file-item cf-item' : 'file-item';
-  return \`<div class="\${rowCls}" style="padding-left:\${padLeft}px" onclick="act('\${clickAction}','\${ep}','\${es}','\${section}',event)">
+  const isSelected = _selSection === section && _selected.has(c.path);
+  const selCls = isSelected ? ' selected' : '';
+  const baseCls = isConflict ? 'file-item cf-item' : 'file-item';
+  return \`<div class="\${baseCls}\${selCls}" style="padding-left:\${padLeft}px" data-path="\${ep}" data-section="\${section}" onclick="onRowClick(event,'\${ep}','\${es}','\${section}')" oncontextmenu="onRowContext(event,'\${ep}','\${es}','\${section}')">
     <span class="badge \${cls}">\${label}</span>
     <span class="fname" title="\${ep}">\${esc(name)}</span>
     \${dir ? \`<span class="fdir">\${esc(dir)}</span>\` : ''}
@@ -803,7 +873,8 @@ function renderTreeNode(node, section, listKey, depth) {
     const padLeft = 8 + depth * 14;
     const count = countTreeFiles(child);
     parts.push(
-      '<div class="folder-item" style="padding-left:' + padLeft + 'px" data-toggle-folder="' + esc(toggleKey) + '">' +
+      '<div class="folder-item" style="padding-left:' + padLeft + 'px" data-toggle-folder="' + esc(toggleKey) + '"' +
+        ' oncontextmenu="onFolderContext(event,\\'' + esc(section) + '\\',\\'' + esc(child.path) + '\\')">' +
         '<span class="chevron' + (open ? '' : ' closed') + '">▶</span>' +
         '<span class="fname">' + esc(name) + '</span>' +
         '<span class="count">(' + count + ')</span>' +
@@ -842,6 +913,143 @@ function act(type, path, status, section, e) {
   if (type !== 'openDiff' && type !== 'openMergeEditor') e.stopPropagation();
   vscode.postMessage({ type, path, status, section });
 }
+
+/* ── selection + context menu ── */
+let _selSection = null;
+let _selected = new Set();
+let _anchor = null;
+
+function ensureSection(section) {
+  if (_selSection !== section) {
+    _selSection = section;
+    _selected = new Set();
+    _anchor = null;
+  }
+}
+function repaintSelection() {
+  document.querySelectorAll('.file-item[data-path]').forEach(el => {
+    const p = el.getAttribute('data-path');
+    const s = el.getAttribute('data-section');
+    el.classList.toggle('selected', _selSection === s && _selected.has(p));
+  });
+}
+function pruneSelection() {
+  if (!_selSection) return;
+  const src = _selSection === 'staged' ? _staged : _unstaged;
+  const valid = new Set(src.map(c => c.path));
+  for (const p of [..._selected]) if (!valid.has(p)) _selected.delete(p);
+  if (_anchor && !valid.has(_anchor)) _anchor = null;
+  if (_selected.size === 0) _selSection = null;
+}
+function selectRange(fromPath, toPath, section) {
+  const rows = [...document.querySelectorAll('.file-item[data-section="' + section + '"]')]
+    .map(el => el.getAttribute('data-path'));
+  const iTo = rows.indexOf(toPath);
+  if (iTo < 0) return;
+  const iFrom = fromPath ? rows.indexOf(fromPath) : iTo;
+  const lo = Math.min(iFrom < 0 ? iTo : iFrom, iTo);
+  const hi = Math.max(iFrom < 0 ? iTo : iFrom, iTo);
+  _selected = new Set(rows.slice(lo, hi + 1));
+}
+
+function onRowClick(event, path, status, section) {
+  if (event.metaKey || event.ctrlKey) {
+    event.preventDefault(); event.stopPropagation();
+    ensureSection(section);
+    if (_selected.has(path)) _selected.delete(path); else _selected.add(path);
+    _anchor = path;
+    if (_selected.size === 0) _selSection = null;
+    repaintSelection();
+    return;
+  }
+  if (event.shiftKey) {
+    event.preventDefault(); event.stopPropagation();
+    ensureSection(section);
+    selectRange(_anchor, path, section);
+    repaintSelection();
+    return;
+  }
+  _selSection = section;
+  _selected = new Set([path]);
+  _anchor = path;
+  repaintSelection();
+  const type = _conflicts.has(path) ? 'openMergeEditor' : 'openDiff';
+  vscode.postMessage({ type, path, status, section });
+}
+
+const ctxMenuEl = document.getElementById('ctxMenu');
+function openCtxMenu(x, y, section) {
+  const count = _selected.size;
+  if (count === 0) return;
+  const items = [];
+  if (section === 'unstaged') {
+    items.push({ action: 'stage', label: count === 1 ? 'Add Change to Staged' : 'Add ' + count + ' Changes to Staged' });
+  } else {
+    items.push({ action: 'unstage', label: count === 1 ? 'Remove Change from Staged' : 'Remove ' + count + ' Changes from Staged' });
+  }
+  items.push({ action: 'revert', label: count === 1 ? 'Revert File' : 'Revert ' + count + ' Files' });
+  items.push({ sep: true });
+  items.push({ action: 'shelve', label: count === 1 ? 'Shelve Changes…' : 'Shelve ' + count + ' Files…' });
+  ctxMenuEl.innerHTML = items.map(it => it.sep
+    ? '<div class="ditem separator"></div>'
+    : '<div class="ditem" data-ctx-action="' + esc(it.action) + '">' + esc(it.label) + '</div>'
+  ).join('');
+  ctxMenuEl.dataset.section = section;
+  const menuW = 220;
+  const menuH = items.length * 28 + 8;
+  const left = Math.min(x, Math.max(4, window.innerWidth - menuW - 4));
+  const top = Math.min(y, Math.max(4, window.innerHeight - menuH - 4));
+  ctxMenuEl.style.left = left + 'px';
+  ctxMenuEl.style.top = top + 'px';
+  ctxMenuEl.style.right = 'auto';
+  ctxMenuEl.style.display = 'block';
+}
+function onRowContext(event, path, status, section) {
+  event.preventDefault(); event.stopPropagation();
+  if (_selSection !== section || !_selected.has(path)) {
+    _selSection = section;
+    _selected = new Set([path]);
+    _anchor = path;
+    repaintSelection();
+  }
+  openCtxMenu(event.clientX, event.clientY, section);
+}
+function onFolderContext(event, section, folderPath) {
+  event.preventDefault(); event.stopPropagation();
+  const src = section === 'staged' ? _staged : _unstaged;
+  const prefix = folderPath + '/';
+  const paths = src
+    .filter(c => c.path === folderPath || c.path.startsWith(prefix))
+    .map(c => c.path);
+  if (paths.length === 0) return;
+  _selSection = section;
+  _selected = new Set(paths);
+  _anchor = paths[paths.length - 1];
+  repaintSelection();
+  openCtxMenu(event.clientX, event.clientY, section);
+}
+ctxMenuEl.addEventListener('click', e => {
+  const it = e.target.closest('[data-ctx-action]');
+  if (!it) return;
+  e.stopPropagation();
+  const action = it.getAttribute('data-ctx-action');
+  const section = ctxMenuEl.dataset.section;
+  ctxMenuEl.style.display = 'none';
+  const paths = [..._selected];
+  if (paths.length === 0) return;
+  if (action === 'stage') vscode.postMessage({ type: 'stageFiles', paths });
+  else if (action === 'unstage') vscode.postMessage({ type: 'unstageFiles', paths });
+  else if (action === 'revert') vscode.postMessage({ type: 'discardFiles', paths });
+  else if (action === 'shelve') vscode.postMessage({ type: 'shelveFiles', paths, section });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ctxMenuEl.style.display = 'none';
+});
+document.addEventListener('contextmenu', e => {
+  if (!e.target.closest('.file-item, .folder-item')) {
+    ctxMenuEl.style.display = 'none';
+  }
+});
 
 document.getElementById('opAbort').addEventListener('click', () => vscode.postMessage({ type: 'operationAbort' }));
 document.getElementById('opContinue').addEventListener('click', () => vscode.postMessage({ type: 'operationContinue' }));
@@ -922,11 +1130,13 @@ window.addEventListener('message', e => {
       _assignments = m.assignments || {};
       _unstaged = m.unstaged || [];
       _staged = m.staged || [];
+      pruneSelection();
       setBulkButtons(_staged.length, _unstaged.length);
       renderOperation(m.operation, _conflicts.size);
       document.getElementById('cntStaged').textContent = '(' + m.staged.length + ')';
       document.getElementById('sbStaged').innerHTML = renderFiles(_staged, 'staged', 'staged');
       renderChangelists();
+      repaintSelection();
       break;
     case 'clearMessage':
       document.getElementById('msg').value = '';
