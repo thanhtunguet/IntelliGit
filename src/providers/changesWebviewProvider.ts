@@ -617,6 +617,8 @@ document.addEventListener('click', () => {
   if (a) a.style.display = 'none';
   const ctx = document.getElementById('ctxMenu');
   if (ctx) ctx.style.display = 'none';
+  const clh = document.getElementById('clHdrMenu');
+  if (clh) clh.style.display = 'none';
 });
 document.getElementById('miCommit').addEventListener('click', () => doCommit(false));
 document.getElementById('miCommitPush').addEventListener('click', () => doCommit(true));
@@ -1043,12 +1045,54 @@ ctxMenuEl.addEventListener('click', e => {
   else if (action === 'shelve') vscode.postMessage({ type: 'shelveFiles', paths, section });
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') ctxMenuEl.style.display = 'none';
+  if (e.key === 'Escape') {
+    ctxMenuEl.style.display = 'none';
+    clHdrMenuEl.style.display = 'none';
+  }
 });
 document.addEventListener('contextmenu', e => {
   if (!e.target.closest('.file-item, .folder-item')) {
     ctxMenuEl.style.display = 'none';
   }
+  if (!e.target.closest('.section-hdr[data-cl-id]')) {
+    clHdrMenuEl.style.display = 'none';
+  }
+});
+
+const clHdrMenuEl = document.getElementById('clHdrMenu');
+function onChangelistHdrContext(event, clId) {
+  event.preventDefault(); event.stopPropagation();
+  const isDefault = clId === 'default';
+  const items = [{ action: 'new', label: '＋ New Changelist…' }];
+  if (!isDefault) {
+    items.push({ sep: true });
+    items.push({ action: 'rename', label: 'Rename Changelist…' });
+    items.push({ action: 'delete', label: 'Delete Changelist' });
+  }
+  clHdrMenuEl.innerHTML = items.map(it => it.sep
+    ? '<div class="ditem separator"></div>'
+    : '<div class="ditem" data-hdr-ctx="' + esc(it.action) + '">' + esc(it.label) + '</div>'
+  ).join('');
+  clHdrMenuEl.dataset.clId = clId;
+  const menuW = 220;
+  const menuH = items.length * 28 + 8;
+  const left = Math.min(event.clientX, Math.max(4, window.innerWidth - menuW - 4));
+  const top = Math.min(event.clientY, Math.max(4, window.innerHeight - menuH - 4));
+  clHdrMenuEl.style.left = left + 'px';
+  clHdrMenuEl.style.top = top + 'px';
+  clHdrMenuEl.style.right = 'auto';
+  clHdrMenuEl.style.display = 'block';
+}
+clHdrMenuEl.addEventListener('click', e => {
+  const it = e.target.closest('[data-hdr-ctx]');
+  if (!it) return;
+  e.stopPropagation();
+  const action = it.getAttribute('data-hdr-ctx');
+  const id = clHdrMenuEl.dataset.clId;
+  clHdrMenuEl.style.display = 'none';
+  if (action === 'new') vscode.postMessage({ type: 'createChangelist' });
+  else if (action === 'rename') vscode.postMessage({ type: 'renameChangelist', id });
+  else if (action === 'delete') vscode.postMessage({ type: 'deleteChangelist', id });
 });
 
 document.getElementById('opAbort').addEventListener('click', () => vscode.postMessage({ type: 'operationAbort' }));
@@ -1091,19 +1135,18 @@ function renderChangelists() {
     const isDefault = cl.id === 'default';
     const open = clOpen[cl.id] !== false;
     const actions = [];
-    if (isDefault) {
-      actions.push('<button class="icon-btn" data-hdr-action="new" data-cl-id="default" title="New Changelist">＋</button>');
-    } else {
+    if (!isDefault) {
       if (files.length > 0) {
         actions.push('<button class="icon-btn" data-hdr-action="commit" data-cl-id="' + esc(cl.id) + '" title="Commit This Changelist">✓</button>');
       }
       actions.push('<button class="icon-btn" data-hdr-action="rename" data-cl-id="' + esc(cl.id) + '" title="Rename">✎</button>');
       actions.push('<button class="icon-btn" data-hdr-action="delete" data-cl-id="' + esc(cl.id) + '" title="Delete">✕</button>');
     }
-    actions.push('<button class="icon-btn" data-stage-cl="' + esc(cl.id) + '" title="Stage All In Changelist">↑</button>');
+    actions.push('<button class="icon-btn" data-stage-cl="' + esc(cl.id) + '" title="Add All to Staged">＋</button>');
     const label = isDefault ? 'CHANGES' : 'CHANGELIST · ' + esc(cl.name);
     parts.push(
-      '<div class="section-hdr" data-cl-id="' + esc(cl.id) + '">' +
+      '<div class="section-hdr" data-cl-id="' + esc(cl.id) + '"' +
+        ' oncontextmenu="onChangelistHdrContext(event,\\'' + esc(cl.id) + '\\')">' +
         '<span class="chevron' + (open ? '' : ' closed') + '">▶</span>' +
         label +
         ' <span class="count">(' + files.length + ')</span>' +
