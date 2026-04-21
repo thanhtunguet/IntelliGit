@@ -712,6 +712,15 @@ document.getElementById('changelistsRoot').addEventListener('click', e => {
     }
     return;
   }
+  const stageAllBtn = e.target.closest('[data-stage-cl]');
+  if (stageAllBtn) {
+    e.stopPropagation();
+    const id = stageAllBtn.getAttribute('data-stage-cl');
+    for (const c of pathsInList(id)) {
+      vscode.postMessage({ type: 'stageFile', path: c });
+    }
+    return;
+  }
   const hdr = e.target.closest('.section-hdr[data-cl-id]');
   if (hdr) {
     if (e.target.closest('.hdr-actions')) return;
@@ -724,15 +733,6 @@ document.getElementById('changelistsRoot').addEventListener('click', e => {
   if (assignBtn) {
     e.stopPropagation();
     openAssignMenu(assignBtn);
-    return;
-  }
-  const stageAllBtn = e.target.closest('[data-stage-cl]');
-  if (stageAllBtn) {
-    e.stopPropagation();
-    const id = stageAllBtn.getAttribute('data-stage-cl');
-    for (const c of pathsInList(id)) {
-      vscode.postMessage({ type: 'stageFile', path: c });
-    }
     return;
   }
 });
