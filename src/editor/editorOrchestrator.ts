@@ -149,6 +149,13 @@ export class EditorOrchestrator {
     await vscode.window.showTextDocument(document, { preview: false, preserveFocus: true, viewColumn: vscode.ViewColumn.Beside });
   }
 
+  async openWorkingTreeFile(filePath: string): Promise<void> {
+    const gitRoot = await this.git.getGitRoot();
+    const uri = vscode.Uri.file(path.join(gitRoot, filePath));
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document, { preview: false, preserveFocus: false });
+  }
+
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
       this.compareView = new CompareView(async (sha, subject) => {

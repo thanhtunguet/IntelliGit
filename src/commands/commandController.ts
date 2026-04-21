@@ -296,6 +296,11 @@ export class CommandController {
         return;
       }
 
+      if (item.status.trim() === '??') {
+        await this.editor.openWorkingTreeFile(item.filePath);
+        return;
+      }
+
       await this.editor.openDiffForFile({
         path: item.filePath,
         leftRef: 'HEAD',

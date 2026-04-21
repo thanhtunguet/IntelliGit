@@ -225,6 +225,11 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
         case 'openDiff': {
           const filePath = msg.path as string;
           const section = msg.section as 'staged' | 'unstaged';
+          const status = (msg.status as string | undefined) ?? '';
+          if (section === 'unstaged' && status === '??') {
+            await this.editor.openWorkingTreeFile(filePath);
+            break;
+          }
           const [leftRef, rightRef] = section === 'staged'
             ? ['HEAD', 'INDEX']
             : ['INDEX', 'WORKTREE'];
