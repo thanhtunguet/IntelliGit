@@ -1144,7 +1144,9 @@ export class CommandController {
   }
 
   private async openBranchActionHub(arg?: unknown): Promise<void> {
-    const branchName = this.resolveBranchNameForActionHub(arg)
+    const explicitBranchArg = this.normalizeBranchActionHubArg(arg);
+    const branchName =
+      (explicitBranchArg ? this.resolveBranchNameForActionHub(explicitBranchArg) ?? explicitBranchArg : undefined)
       ?? (await this.pickBranchName('Pick branch for IntelliGit actions'));
 
     if (!branchName) {
@@ -1152,9 +1154,9 @@ export class CommandController {
     }
 
     const currentBranch = await this.git.getCurrentBranch();
-    const isCurrentBranch = branchName === currentBranch;
-    const branch = this.state.branches.find((item) => item.name === branchName);
-    const canRenameOrDelete = branch?.type !== 'remote';
+    const branch = this.state.branches.find((item) => item.name === branchName || item.shortName === branchName);
+    const isCurrentBranch = branch ? branch.current : branchName === currentBranch;
+    const canRenameOrDelete = branch ? branch.type !== 'remote' : false;
 
     type BranchHubAction = {
       id: string;
@@ -1399,33 +1401,31 @@ export class CommandController {
     return picked?.label;
   }
 
-  private resolveBranchNameForActionHub(arg: unknown): string | undefined {
+  private normalizeBranchActionHubArg(arg: unknown): string | undefined {
     if (arg instanceof BranchTreeItem) {
       return arg.branch.name;
     }
-
     if (typeof arg !== 'string') {
       return undefined;
     }
-
     const raw = arg.trim();
-    if (!raw) {
-      return undefined;
-    }
+    return raw || undefined;
+  }
 
-    const exactMatch = this.state.branches.find((branch) => branch.name === raw);
+  private resolveBranchNameForActionHub(rawBranchName: string): string | undefined {
+    const exactMatch = this.state.branches.find((branch) => branch.name === rawBranchName);
     if (exactMatch) {
       return exactMatch.name;
     }
 
     const uniqueLocalShortMatch = this.state.branches.filter(
-      (branch) => branch.type === 'local' && branch.shortName === raw
+      (branch) => branch.type === 'local' && branch.shortName === rawBranchName
     );
     if (uniqueLocalShortMatch.length === 1) {
       return uniqueLocalShortMatch[0].name;
     }
 
-    const uniqueShortMatch = this.state.branches.filter((branch) => branch.shortName === raw);
+    const uniqueShortMatch = this.state.branches.filter((branch) => branch.shortName === rawBranchName);
     if (uniqueShortMatch.length === 1) {
       return uniqueShortMatch[0].name;
     }
