@@ -52,12 +52,6 @@
           "icon": "media/intelligit.svg"
         },
         {
-          "id": "intelliGit.stashes",
-          "name": "Stashes",
-          "visibility": "visible",
-          "icon": "media/intelligit.svg"
-        },
-        {
           "id": "intelliGit.branches",
           "name": "Branches",
           "visibility": "visible",
@@ -68,6 +62,13 @@
           "name": "Git Graph",
           "visibility": "visible",
           "icon": "media/intelligit.svg"
+        }
+      ],
+      "scm": [
+        {
+          "id": "intelliGit.stashes",
+          "name": "IntelliGit Stashes",
+          "visibility": "visible"
         }
       ],
       "panel": [
