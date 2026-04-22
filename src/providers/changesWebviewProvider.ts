@@ -320,7 +320,7 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
             path: filePath,
             leftRef,
             rightRef,
-            title: `${leftRef} ↔ ${rightRef} · ${filePath}`
+            title: this.buildDiffTitle(filePath, status, section, leftRef, rightRef)
           });
           break;
         }
@@ -441,6 +441,33 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     } catch (err) {
       void vscode.window.showErrorMessage(String(err));
     }
+  }
+
+  private buildDiffTitle(
+    filePath: string,
+    status: string,
+    section: 'staged' | 'unstaged',
+    leftRef: string,
+    rightRef: string
+  ): string {
+    const statusCode = this.getStatusCode(status, section);
+    if (statusCode === 'A') {
+      return `${leftRef} ↔ ${rightRef} · ${filePath} (added in ${rightRef})`;
+    }
+    if (statusCode === 'D') {
+      return `${leftRef} ↔ ${rightRef} · ${filePath} (deleted in ${rightRef})`;
+    }
+    return `${leftRef} ↔ ${rightRef} · ${filePath}`;
+  }
+
+  private getStatusCode(statusRaw: string, section: 'staged' | 'unstaged'): string {
+    if (statusRaw === '??') {
+      return 'U';
+    }
+
+    const source = section === 'staged' ? statusRaw[0] : statusRaw[1];
+    const code = (source ?? '').trim().toUpperCase();
+    return code || '?';
   }
 
   private _getHtml(): string {
@@ -822,12 +849,16 @@ document.getElementById('msg').addEventListener('keydown', e => {
 
 /* ── helpers ── */
 function statusInfo(rawStatus, section) {
+  const normalized = String(rawStatus || '');
   let ch = '?';
-  if (rawStatus === '??') { ch = 'U'; }
-  else if (section === 'staged') { ch = rawStatus[0] || '?'; }
-  else { ch = rawStatus[1] || '?'; }
-  const cls = ['M','A','D','R','C'].includes(ch) ? ch : (ch === 'U' ? 'U' : '');
-  return { label: ch === '?' ? 'U' : ch, cls };
+  if (normalized === '??') { ch = 'U'; }
+  else if (section === 'staged') { ch = (normalized[0] || '?').trim() || '?'; }
+  else { ch = (normalized[1] || '?').trim() || '?'; }
+  ch = ch.toUpperCase();
+  if (ch === 'A') return { label: '+', cls: 'A' };
+  if (ch === 'D') return { label: '-', cls: 'D' };
+  if (['M','R','C','U'].includes(ch)) return { label: ch, cls: ch };
+  return { label: '?', cls: '' };
 }
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fileParts(p) {
