@@ -480,7 +480,7 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);background:var(--vscode-sideBar-background);overflow-x:hidden}
-.commit-panel{padding:8px;border-bottom:1px solid var(--vscode-sideBarSectionHeader-border,var(--vscode-widget-border,#454545))}
+.commit-panel{display:none}
 textarea{width:100%;min-height:76px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;padding:4px 6px;font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);resize:vertical;outline:none}
 textarea:focus{border-color:var(--vscode-focusBorder)}
 textarea::placeholder{color:var(--vscode-input-placeholderForeground)}

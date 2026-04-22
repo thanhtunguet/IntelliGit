@@ -8,6 +8,7 @@ import { CommitActionContext, CommitFileTreeItem, RevisionFileTreeItem } from '.
 import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
+import { expandTemplate, loadTemplates } from '../state/commitTemplates';
 import { StateStore } from '../state/stateStore';
 
 interface QuickAction {
@@ -15,6 +16,22 @@ interface QuickAction {
   description?: string;
   run: () => Promise<void>;
 }
+
+type GitScmRepository = {
+  rootUri: vscode.Uri;
+  inputBox: {
+    value: string;
+  };
+};
+
+type GitScmApi = {
+  repositories: GitScmRepository[];
+  getRepository(uri: vscode.Uri): GitScmRepository | null;
+};
+
+type GitScmExtensionExports = {
+  getAPI(version: 1): GitScmApi;
+};
 
 export class CommandController {
   constructor(
@@ -1096,6 +1113,95 @@ export class CommandController {
       }
       await this.state.refreshAll();
     });
+
+    register('intelliGit.scm.commitTemplate', async () => {
+      const repository = await this.getBuiltInGitRepository();
+      if (!repository) {
+        void vscode.window.showWarningMessage('Git repository context not available.');
+        return;
+      }
+
+      const templates = loadTemplates();
+      if (templates.length === 0) {
+        void vscode.window.showInformationMessage('No commit templates configured.');
+        return;
+      }
+
+      const picked = await vscode.window.showQuickPick(
+        templates.map((template) => ({
+          label: template.label,
+          description: template.template,
+          template: template.template
+        })),
+        {
+          title: 'Insert commit message template',
+          placeHolder: 'Pick a template'
+        }
+      );
+      if (!picked) {
+        return;
+      }
+
+      let branch = '';
+      try {
+        branch = await this.git.getCurrentBranch();
+      } catch {
+        // ignore: branch placeholder will stay empty
+      }
+
+      const expanded = expandTemplate(picked.template, { branch }).text;
+      repository.inputBox.value = expanded;
+    });
+
+    register('intelliGit.scm.generateCommitMessage', async () => {
+      const repository = await this.getBuiltInGitRepository();
+      if (!repository) {
+        void vscode.window.showWarningMessage('Git repository context not available.');
+        return;
+      }
+
+      const timeoutMs = vscode.workspace.getConfiguration('intelliGit').get<number>('aiGenerateTimeoutMs', 5000);
+      const cts = new vscode.CancellationTokenSource();
+      const timer = setTimeout(() => cts.cancel(), timeoutMs);
+
+      try {
+        const generated = await this.git.generateCommitMessage(cts.token);
+        repository.inputBox.value = generated;
+      } catch (error) {
+        const message = cts.token.isCancellationRequested
+          ? `AI generation timed out after ${timeoutMs / 1000}s.`
+          : String(error);
+        void vscode.window.showErrorMessage(message);
+      } finally {
+        clearTimeout(timer);
+        cts.dispose();
+      }
+    });
+
+    register('intelliGit.scm.amendFromInput', async () => {
+      const repository = await this.getBuiltInGitRepository();
+      if (!repository) {
+        void vscode.window.showWarningMessage('Git repository context not available.');
+        return;
+      }
+
+      const commitMessage = repository.inputBox.value.trim();
+      const confirmed = await confirmDangerousAction({
+        title: 'Amend last commit',
+        detail: commitMessage
+          ? 'Use the current Source Control commit message and amend the last commit.'
+          : 'Amend the last commit without changing its message.',
+        acceptLabel: 'Amend'
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      await this.git.amendCommit(commitMessage || undefined);
+      repository.inputBox.value = '';
+      await this.state.refreshAll();
+    });
+
     register('intelliGit.fileHistory.open', async (arg?: unknown) => {
       const file = toRepoFilePath(arg) ?? this.getActiveFilePath();
       if (!file) {
@@ -1525,6 +1631,31 @@ export class CommandController {
     );
 
     return picked?.label;
+  }
+
+  private async getBuiltInGitRepository(): Promise<GitScmRepository | undefined> {
+    const gitExtension = vscode.extensions.getExtension<GitScmExtensionExports>('vscode.git');
+    if (!gitExtension) {
+      return undefined;
+    }
+
+    const gitExports = gitExtension.isActive
+      ? gitExtension.exports
+      : await gitExtension.activate();
+    const gitApi = gitExports?.getAPI(1);
+    if (!gitApi) {
+      return undefined;
+    }
+
+    const rootUri = vscode.Uri.file(this.git.gitRoot);
+    const direct = gitApi.getRepository(rootUri);
+    if (direct) {
+      return direct;
+    }
+
+    const normalizedRoot = this.git.gitRoot.replace(/\\/g, '/');
+    return gitApi.repositories.find((repo) => repo.rootUri.fsPath.replace(/\\/g, '/') === normalizedRoot)
+      ?? gitApi.repositories[0];
   }
 
   private getActiveFilePath(): string | undefined {

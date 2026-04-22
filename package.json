@@ -311,6 +311,18 @@
         "title": "Amend Last Commit"
       },
       {
+        "command": "intelliGit.scm.commitTemplate",
+        "title": "Insert Commit Template (SCM)"
+      },
+      {
+        "command": "intelliGit.scm.generateCommitMessage",
+        "title": "Generate Commit Message (SCM)"
+      },
+      {
+        "command": "intelliGit.scm.amendFromInput",
+        "title": "Amend Last Commit (SCM Input)"
+      },
+      {
         "command": "intelliGit.fileHistory.open",
         "title": "Open File History"
       },
@@ -357,6 +369,21 @@
           "command": "intelliGit.branch.actionHub",
           "when": "scmProvider == git",
           "group": "2_main@4.9"
+        },
+        {
+          "command": "intelliGit.scm.commitTemplate",
+          "when": "scmProvider == git",
+          "group": "3_intelliGitCommit@1"
+        },
+        {
+          "command": "intelliGit.scm.generateCommitMessage",
+          "when": "scmProvider == git",
+          "group": "3_intelliGitCommit@2"
+        },
+        {
+          "command": "intelliGit.scm.amendFromInput",
+          "when": "scmProvider == git",
+          "group": "3_intelliGitCommit@3"
         }
       ],
       "git.branch": [
