@@ -1113,7 +1113,6 @@ export class CommandController {
       { label: 'Stage file', run: async () => vscode.commands.executeCommand('intelliGit.stage.file') },
       { label: 'Unstage file', run: async () => vscode.commands.executeCommand('intelliGit.unstage.file') },
       { label: 'Amend last commit', run: async () => vscode.commands.executeCommand('intelliGit.commit.amend') },
-      { label: 'Open file history', run: async () => vscode.commands.executeCommand('intelliGit.fileHistory.open') },
       { label: 'Open file blame', run: async () => vscode.commands.executeCommand('intelliGit.fileBlame.open') }
     ];
 
