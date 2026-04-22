@@ -723,18 +723,40 @@ export class GitService {
 
   async getFileContentFromRef(refSpec: string, relativePath: string): Promise<string> {
     if (refSpec === 'WORKTREE') {
-      const gitRoot = await this.getGitRoot();
-      const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(gitRoot, relativePath)));
-      return Buffer.from(bytes).toString('utf8');
+      try {
+        const gitRoot = await this.getGitRoot();
+        const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(gitRoot, relativePath)));
+        return Buffer.from(bytes).toString('utf8');
+      } catch (error) {
+        if (this.isMissingFileContentError(error)) {
+          return '';
+        }
+        throw error;
+      }
     }
 
-    if (refSpec === 'INDEX') {
-      const result = await this.runGit(['show', `:${relativePath}`]);
+    try {
+      if (refSpec === 'INDEX') {
+        const result = await this.runGit(['show', `:${relativePath}`]);
+        return result.stdout;
+      }
+
+      const result = await this.runGit(['show', `${refSpec}:${relativePath}`]);
       return result.stdout;
+    } catch (error) {
+      if (this.isMissingFileContentError(error)) {
+        return '';
+      }
+      throw error;
     }
+  }
 
-    const result = await this.runGit(['show', `${refSpec}:${relativePath}`]);
-    return result.stdout;
+  private isMissingFileContentError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      /EntryNotFound|ENOENT|no such file or directory/i.test(message) ||
+      /does not exist in|exists on disk, but not in|not in the index/i.test(message)
+    );
   }
 
   async getFilesInCommit(sha: string): Promise<string[]> {
