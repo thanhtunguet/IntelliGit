@@ -78,7 +78,8 @@
       },
       {
         "command": "intelliGit.quickActions",
-        "title": "Quick Git Actions"
+        "title": "Quick Git Actions",
+        "icon": "$(ellipsis)"
       },
       {
         "command": "intelliGit.branch.checkout",
