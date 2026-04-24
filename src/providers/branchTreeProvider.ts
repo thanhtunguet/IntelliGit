@@ -66,19 +66,9 @@ export class BranchTreeItem extends vscode.TreeItem {
 export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.emitter.event;
-  private filterText = '';
 
   constructor(private readonly state: StateStore) {
     this.state.onDidChange(() => this.emitter.fire());
-  }
-
-  setFilter(text: string): void {
-    this.filterText = text.trim().toLowerCase();
-    this.emitter.fire();
-  }
-
-  getFilter(): string {
-    return this.filterText;
   }
 
   refresh(): void {
@@ -90,12 +80,7 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
   }
 
   async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
-    const branches = this.state.branches.filter((branch) => {
-      if (!this.filterText) {
-        return true;
-      }
-      return branch.name.toLowerCase().includes(this.filterText) || branch.shortName.toLowerCase().includes(this.filterText);
-    });
+    const branches = this.state.branches;
 
     if (!element) {
       return this.buildTopLevelSections(branches);

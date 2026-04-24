@@ -136,8 +136,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       getSelectedPaths(selectedItems: readonly ChangeFileTreeItem[]): string[] {
         return changesProvider.getSelectedPaths(selectedItems);
       }
-    },
-    branchProvider
+    }
   );
   commandController.register(context);
   await registerBranchActionHubInGitCheckout(context, logger);

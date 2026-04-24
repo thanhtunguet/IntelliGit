@@ -10,6 +10,8 @@ import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
 import { expandTemplate, loadTemplates } from '../state/commitTemplates';
 import { StateStore } from '../state/stateStore';
+import { BranchSearchView } from '../views/branchSearchView';
+import { GraphFilterView } from '../views/graphFilterView';
 
 interface QuickAction {
   label: string;
@@ -44,11 +46,6 @@ export class CommandController {
     },
     private readonly changesView: {
       getSelectedPaths(selectedItems: readonly ChangeFileTreeItem[]): string[];
-    },
-    private readonly branchProvider: {
-      setFilter(value: string): void;
-      getFilter(): string;
-      refresh(): void;
     }
   ) { }
 
@@ -140,21 +137,19 @@ export class CommandController {
     });
 
     register('intelliGit.branch.search', async () => {
-      const query = await vscode.window.showInputBox({
-        title: 'Search Branches',
-        placeHolder: 'Filter by branch name…',
-        value: this.branchProvider.getFilter()
-      });
-      if (query === undefined) {
-        return;
-      }
-      this.branchProvider.setFilter(query);
-      await vscode.commands.executeCommand('setContext', 'intelliGit.branchFilterActive', query.trim().length > 0);
-    });
-
-    register('intelliGit.branch.clearSearch', async () => {
-      this.branchProvider.setFilter('');
-      await vscode.commands.executeCommand('setContext', 'intelliGit.branchFilterActive', false);
+      BranchSearchView.open(
+        {
+          checkout: async (name: string) => {
+            await this.git.checkoutBranch(name);
+            await this.state.refreshAll();
+          },
+          openActions: async (name: string) => {
+            await vscode.commands.executeCommand('intelliGit.branch.actionHub', name);
+          }
+        },
+        () => this.state.branches,
+        (listener) => this.state.onDidChange(listener)
+      );
     });
 
     register('intelliGit.branch.checkout', async (arg?: unknown) => {
@@ -787,62 +782,23 @@ export class CommandController {
     });
 
     register('intelliGit.graph.filter', async () => {
-      const existing = this.state.graphFilters;
-      const branch = await vscode.window.showInputBox({
-        title: 'Graph filter: branch/ref',
-        value: existing.branch ?? '',
-        placeHolder: 'Optional (e.g. main)'
-      });
-      if (branch === undefined) {
-        return;
-      }
-
-      const author = await vscode.window.showInputBox({
-        title: 'Graph filter: author',
-        value: existing.author ?? '',
-        placeHolder: 'Optional'
-      });
-      if (author === undefined) {
-        return;
-      }
-
-      const message = await vscode.window.showInputBox({
-        title: 'Graph filter: message text',
-        value: existing.message ?? '',
-        placeHolder: 'Optional'
-      });
-      if (message === undefined) {
-        return;
-      }
-
-      const since = await vscode.window.showInputBox({
-        title: 'Graph filter: since',
-        value: existing.since ?? '',
-        placeHolder: 'Optional (e.g. 2026-01-01)'
-      });
-      if (since === undefined) {
-        return;
-      }
-
-      const until = await vscode.window.showInputBox({
-        title: 'Graph filter: until',
-        value: existing.until ?? '',
-        placeHolder: 'Optional (e.g. 2026-03-01)'
-      });
-      if (until === undefined) {
-        return;
-      }
-
-      const filters = {
-        branch: branch.trim() || undefined,
-        author: author.trim() || undefined,
-        message: message.trim() || undefined,
-        since: since.trim() || undefined,
-        until: until.trim() || undefined
-      };
-      await this.state.refreshGraph(filters);
-      const isActive = Object.values(filters).some(Boolean);
-      await vscode.commands.executeCommand('setContext', 'intelliGit.graphFilterActive', isActive);
+      GraphFilterView.open(
+        {
+          apply: async (filters) => {
+            await this.state.refreshGraph(filters);
+            const isActive = Object.values(filters).some(Boolean);
+            await vscode.commands.executeCommand('setContext', 'intelliGit.graphFilterActive', isActive);
+          },
+          clear: async () => {
+            await this.state.clearGraphFilters();
+            await vscode.commands.executeCommand('setContext', 'intelliGit.graphFilterActive', false);
+          }
+        },
+        () => ({
+          filters: this.state.graphFilters,
+          branches: this.state.branches
+        })
+      );
     });
 
     register('intelliGit.graph.clearFilter', async () => {
