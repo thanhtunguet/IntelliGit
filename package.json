@@ -224,11 +224,13 @@
       },
       {
         "command": "intelliGit.graph.filter",
-        "title": "Filter Graph"
+        "title": "Filter Graph",
+        "icon": "$(filter)"
       },
       {
         "command": "intelliGit.graph.clearFilter",
-        "title": "Clear Graph Filters"
+        "title": "Clear Graph Filters",
+        "icon": "$(filter-filled)"
       },
       {
         "command": "intelliGit.diff.open",
@@ -425,6 +427,16 @@
         {
           "command": "intelliGit.branch.clearSearch",
           "when": "view == intelliGit.branches && intelliGit.branchFilterActive",
+          "group": "navigation@3"
+        },
+        {
+          "command": "intelliGit.graph.filter",
+          "when": "view == intelliGit.graph",
+          "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.graph.clearFilter",
+          "when": "view == intelliGit.graph && intelliGit.graphFilterActive",
           "group": "navigation@3"
         },
         {

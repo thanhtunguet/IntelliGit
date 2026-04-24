@@ -833,17 +833,21 @@ export class CommandController {
         return;
       }
 
-      await this.state.refreshGraph({
+      const filters = {
         branch: branch.trim() || undefined,
         author: author.trim() || undefined,
         message: message.trim() || undefined,
         since: since.trim() || undefined,
         until: until.trim() || undefined
-      });
+      };
+      await this.state.refreshGraph(filters);
+      const isActive = Object.values(filters).some(Boolean);
+      await vscode.commands.executeCommand('setContext', 'intelliGit.graphFilterActive', isActive);
     });
 
     register('intelliGit.graph.clearFilter', async () => {
       await this.state.clearGraphFilters();
+      await vscode.commands.executeCommand('setContext', 'intelliGit.graphFilterActive', false);
     });
 
     register('intelliGit.diff.open', async () => {
