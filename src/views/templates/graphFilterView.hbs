@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filter Graph</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: var(--vscode-editor-background);
+      --fg: var(--vscode-editor-foreground);
+      --muted: var(--vscode-descriptionForeground);
+      --border: var(--vscode-panel-border);
+      --accent: var(--vscode-focusBorder);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: var(--vscode-font-family);
+      color: var(--fg);
+      background: var(--bg);
+      margin: 0;
+      padding: 14px 16px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+    h1 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    p.hint {
+      margin: 0;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+      flex: 1;
+    }
+    .filters-inline {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr) minmax(132px, 160px) minmax(132px, 160px);
+      align-items: end;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      position: relative;
+    }
+    .field-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .field-label .note {
+      font-weight: 400;
+      margin-left: 4px;
+    }
+    .input-shell {
+      position: relative;
+    }
+    .filter-input {
+      width: 100%;
+      padding: 7px 28px 7px 8px;
+      font-size: 12px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, var(--border));
+      border-radius: 6px;
+      outline: none;
+      font-family: var(--vscode-font-family);
+    }
+    .filter-input:focus {
+      border-color: var(--accent);
+    }
+    .field-clear {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 14px;
+      line-height: 18px;
+      text-align: center;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 120ms ease;
+    }
+    .input-shell:hover .field-clear,
+    .input-shell:focus-within .field-clear {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .field-clear:hover {
+      color: var(--fg);
+      background: color-mix(in srgb, var(--accent), transparent 88%);
+    }
+    .autocomplete-list {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 2px);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--bg), white 3%);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+      z-index: 20;
+    }
+    .autocomplete-list.visible {
+      display: block;
+    }
+    .autocomplete-option {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      text-align: left;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+    .autocomplete-option:hover,
+    .autocomplete-option.active {
+      background: color-mix(in srgb, var(--accent), transparent 85%);
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+    button {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button.primary {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: 1px solid var(--vscode-button-background);
+    }
+    button.primary:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    button.secondary {
+      background: var(--vscode-button-secondaryBackground, transparent);
+      color: var(--vscode-button-secondaryForeground, var(--fg));
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover {
+      border-color: var(--accent);
+    }
+    .commit-preview {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      min-height: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview-header {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .preview-table-wrap {
+      overflow: auto;
+      min-height: 0;
+      flex: 1;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      padding: 5px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: color-mix(in srgb, var(--bg), white 3%);
+      z-index: 1;
+    }
+    .col-sha { width: 90px; font-family: var(--vscode-editor-font-family); }
+    .col-date { width: 130px; }
+  </style>
+</head>
+<body>
+  <h1>Filter Graph</h1>
+  <p class="hint">Inline filters with live commit preview. Enter applies, Esc closes.</p>
+
+  <form id="form">
+    <section class="filters-inline">
+      <div class="field">
+        <label class="field-label" for="message">Message <span class="note">(subject/id)</span></label>
+        <div class="input-shell">
+          <input id="message" name="message" class="filter-input" type="text" placeholder="fix login, HOTFIX-123, short SHA" autofocus spellcheck="false" />
+          <button type="button" class="field-clear" data-target="message" aria-label="Clear message" title="Clear">×</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="branch">Branch</label>
+        <div class="input-shell">
+          <input id="branch" name="branch" class="filter-input" type="text" placeholder="main, feature/login" spellcheck="false" autocomplete="off" />
+          <button type="button" class="field-clear" data-target="branch" aria-label="Clear branch" title="Clear">×</button>
+          <div id="branch-list" class="autocomplete-list" role="listbox" aria-label="Branch suggestions"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="author">Author</label>
+        <div class="input-shell">
+          <input id="author" name="author" class="filter-input" type="text" placeholder="name or email" spellcheck="false" autocomplete="off" />
+          <button type="button" class="field-clear" data-target="author" aria-label="Clear author" title="Clear">×</button>
+          <div id="author-list" class="autocomplete-list" role="listbox" aria-label="Author suggestions"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="since">Since</label>
+        <div class="input-shell">
+          <input id="since" name="since" class="filter-input" type="date" />
+          <button type="button" class="field-clear" data-target="since" aria-label="Clear since" title="Clear">×</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="until">Until</label>
+        <div class="input-shell">
+          <input id="until" name="until" class="filter-input" type="date" />
+          <button type="button" class="field-clear" data-target="until" aria-label="Clear until" title="Clear">×</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="commit-preview">
+      <div class="preview-header" id="preview-header">Matching commits: 0</div>
+      <div class="preview-table-wrap">
+        <table>
+          <thead>
+            <tr><th class="col-sha">SHA</th><th>Subject</th><th>Author</th><th class="col-date">Date</th></tr>
+          </thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button type="button" class="secondary" id="cancel">Cancel</button>
+      <button type="button" class="secondary" id="clear">Clear Filters</button>
+      <button type="submit" class="primary" id="apply">Apply</button>
+    </div>
+  </form>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+    const form = document.getElementById('form');
+    const MAX_PREVIEW = 200;
+    const state = {
+      branches: [],
+      authors: [],
+      commits: []
+    };
+    const messageInput = document.getElementById('message');
+    const branchInput = document.getElementById('branch');
+    const authorInput = document.getElementById('author');
+    const sinceInput = document.getElementById('since');
+    const untilInput = document.getElementById('until');
+    const previewHeader = document.getElementById('preview-header');
+    const previewBody = document.getElementById('preview-body');
+    const fieldClearButtons = Array.from(document.querySelectorAll('.field-clear'));
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg && msg.type === 'init') {
+        const f = msg.filters || {};
+        messageInput.value = f.message || '';
+        branchInput.value = f.branch || '';
+        authorInput.value = f.author || '';
+        sinceInput.value = f.since || '';
+        untilInput.value = f.until || '';
+        state.branches = Array.isArray(msg.branches) ? msg.branches : [];
+        state.commits = Array.isArray(msg.commits) ? msg.commits : [];
+        state.authors = Array.from(
+          new Set(state.commits.map((c) => (typeof c.author === 'string' ? c.author.trim() : '')).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b));
+        branchAutocomplete.setSource(state.branches);
+        authorAutocomplete.setSource(state.authors);
+        renderPreview();
+      }
+    });
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function parseSince(value) {
+      if (!value) { return undefined; }
+      const timestamp = new Date(value + 'T00:00:00').getTime();
+      return Number.isFinite(timestamp) ? timestamp : undefined;
+    }
+
+    function parseUntil(value) {
+      if (!value) { return undefined; }
+      const timestamp = new Date(value + 'T23:59:59.999').getTime();
+      return Number.isFinite(timestamp) ? timestamp : undefined;
+    }
+
+    function scoreMatch(candidate, keyword) {
+      if (!keyword) { return 3; }
+      const i = candidate.indexOf(keyword);
+      if (i < 0) { return Number.POSITIVE_INFINITY; }
+      if (i === 0) { return 0; }
+      if (candidate[i - 1] === ' ' || candidate[i - 1] === '/' || candidate[i - 1] === '-') { return 1; }
+      return 2;
+    }
+
+    function collect() {
+      return {
+        message: messageInput.value,
+        branch: branchInput.value,
+        author: authorInput.value,
+        since: sinceInput.value,
+        until: untilInput.value
+      };
+    }
+
+    function getFilteredCommits() {
+      const f = collect();
+      const message = (f.message || '').trim().toLowerCase();
+      const branch = (f.branch || '').trim().toLowerCase();
+      const author = (f.author || '').trim().toLowerCase();
+      const since = parseSince(f.since || '');
+      const until = parseUntil(f.until || '');
+      return state.commits.filter((commit) => {
+        const subject = String(commit.subject || '').toLowerCase();
+        const sha = String(commit.sha || '').toLowerCase();
+        const refs = Array.isArray(commit.refs) ? commit.refs.join(' ') : '';
+        const refsLower = refs.toLowerCase();
+        const authorLower = String(commit.author || '').toLowerCase();
+        const commitDate = new Date(commit.date || '').getTime();
+        const messageOk = !message || subject.includes(message) || sha.includes(message);
+        const branchOk = !branch || refsLower.includes(branch);
+        const authorOk = !author || authorLower.includes(author);
+        const sinceOk = since === undefined || (Number.isFinite(commitDate) && commitDate >= since);
+        const untilOk = until === undefined || (Number.isFinite(commitDate) && commitDate <= until);
+        return messageOk && branchOk && authorOk && sinceOk && untilOk;
+      });
+    }
+
+    function renderPreview() {
+      const filtered = getFilteredCommits();
+      const shown = filtered.slice(0, MAX_PREVIEW);
+      previewHeader.textContent = 'Matching commits: ' + filtered.length + (filtered.length > MAX_PREVIEW ? ' (showing first ' + MAX_PREVIEW + ')' : '');
+      if (shown.length === 0) {
+        previewBody.innerHTML = '<tr><td colspan="4">No commits match current filters</td></tr>';
+        return;
+      }
+      previewBody.innerHTML = shown.map((commit) => {
+        const shortSha = escapeHtml(commit.shortSha || String(commit.sha || '').slice(0, 8));
+        const subject = escapeHtml(commit.subject || '');
+        const author = escapeHtml(commit.author || '');
+        const date = new Date(commit.date || '');
+        const dateText = Number.isFinite(date.getTime())
+          ? escapeHtml(date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))
+          : '';
+        return '<tr><td class="col-sha">' + shortSha + '</td><td title="' + subject + '">' + subject + '</td><td title="' + author + '">' + author + '</td><td class="col-date">' + dateText + '</td></tr>';
+      }).join('');
+    }
+
+    function createAutocomplete(input, list) {
+      const model = { source: [], suggestions: [], activeIndex: -1 };
+      const close = () => {
+        model.suggestions = [];
+        model.activeIndex = -1;
+        list.classList.remove('visible');
+        list.innerHTML = '';
+      };
+      const focusActive = () => {
+        const active = list.querySelector('.autocomplete-option.active');
+        if (active && active.scrollIntoView) {
+          active.scrollIntoView({ block: 'nearest' });
+        }
+      };
+      const render = () => {
+        if (model.suggestions.length === 0) {
+          close();
+          return;
+        }
+        list.innerHTML = model.suggestions.map((value, index) => {
+          const active = index === model.activeIndex ? ' active' : '';
+          return '<button type="button" class="autocomplete-option' + active + '" data-index="' + index + '" role="option" aria-selected="' + (index === model.activeIndex ? 'true' : 'false') + '">' + escapeHtml(value) + '</button>';
+        }).join('');
+        list.classList.add('visible');
+        focusActive();
+      };
+      const compute = (keyword) => {
+        const key = (keyword || '').trim().toLowerCase();
+        model.suggestions = model.source
+          .map((value) => {
+            const lower = String(value).toLowerCase();
+            return { value, score: scoreMatch(lower, key), index: lower.indexOf(key) };
+          })
+          .filter((item) => Number.isFinite(item.score))
+          .sort((a, b) => {
+            if (a.score !== b.score) { return a.score - b.score; }
+            if (a.index !== b.index) { return a.index - b.index; }
+            return a.value.localeCompare(b.value);
+          })
+          .map((item) => item.value);
+        model.activeIndex = model.suggestions.length > 0 ? 0 : -1;
+      };
+      const open = () => {
+        compute(input.value);
+        render();
+      };
+      const select = (index) => {
+        const selected = model.suggestions[index];
+        if (!selected) { return; }
+        input.value = selected;
+        close();
+        renderPreview();
+      };
+      input.addEventListener('input', () => {
+        renderPreview();
+        open();
+      });
+      input.addEventListener('focus', open);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+          if (model.suggestions.length === 0) { open(); }
+          if (model.suggestions.length > 0) {
+            event.preventDefault();
+            model.activeIndex = (model.activeIndex + 1 + model.suggestions.length) % model.suggestions.length;
+            render();
+          }
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          if (model.suggestions.length === 0) { open(); }
+          if (model.suggestions.length > 0) {
+            event.preventDefault();
+            model.activeIndex = (model.activeIndex - 1 + model.suggestions.length) % model.suggestions.length;
+            render();
+          }
+          return;
+        }
+        if (event.key === 'Enter' && model.activeIndex >= 0 && model.suggestions.length > 0) {
+          event.preventDefault();
+          select(model.activeIndex);
+          return;
+        }
+        if (event.key === 'Escape') {
+          close();
+        }
+      });
+      list.addEventListener('mousedown', (event) => event.preventDefault());
+      list.addEventListener('click', (event) => {
+        const option = event.target && event.target.closest ? event.target.closest('.autocomplete-option') : null;
+        if (!option) { return; }
+        const index = Number(option.getAttribute('data-index') || '-1');
+        if (index >= 0) {
+          select(index);
+        }
+      });
+      document.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target === input || list.contains(target)) { return; }
+        close();
+      });
+      return {
+        setSource(values) {
+          model.source = Array.isArray(values) ? values : [];
+        },
+        close
+      };
+    }
+
+    const branchAutocomplete = createAutocomplete(branchInput, document.getElementById('branch-list'));
+    const authorAutocomplete = createAutocomplete(authorInput, document.getElementById('author-list'));
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      vscode.postMessage({ type: 'apply', filters: collect() });
+    });
+
+    document.getElementById('cancel').addEventListener('click', () => {
+      vscode.postMessage({ type: 'close' });
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      vscode.postMessage({ type: 'clear' });
+    });
+
+    fieldClearButtons.forEach((button) => {
+      button.addEventListener('mousedown', (event) => event.preventDefault());
+      button.addEventListener('click', () => {
+        const targetId = button.getAttribute('data-target') || '';
+        const target = document.getElementById(targetId);
+        if (!target) { return; }
+        target.value = '';
+        if (targetId === 'branch') { branchAutocomplete.close(); }
+        if (targetId === 'author') { authorAutocomplete.close(); }
+        renderPreview();
+      });
+    });
+    [messageInput, sinceInput, untilInput].forEach((input) => {
+      input.addEventListener('input', renderPreview);
+      input.addEventListener('change', renderPreview);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        vscode.postMessage({ type: 'close' });
+      }
+    });
+  </script>
+</body>
+</html>

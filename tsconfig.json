@@ -1,15 +1,31 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "es2022",
-    "outDir": "dist",
-    "lib": ["es2022"],
-    "types": ["node", "vscode"],
-    "sourceMap": true,
-    "rootDir": "src",
-    "strict": true,
+    "allowJs": false,
+    "emitDecoratorMetadata": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "experimentalDecorators": true,
+    "isolatedModules": true,
+    "isolatedDeclarations": false,
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "CommonJS",
+    "outDir": "dist",
+    "rootDir": "src",
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": [
+      "node",
+      "vscode"
+    ]
   },
-  "exclude": ["node_modules", ".vscode-test"]
+  "exclude": [
+    ".vscode-test",
+    "node_modules"
+  ]
 }

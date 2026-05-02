@@ -28,7 +28,9 @@
     "onCommand:intelliGit.quickActions"
   ],
   "scripts": {
-    "compile": "tsc -p .",
+    "compile": "tsc -p . && node scripts/copy-templates.js",
+    "copy-templates": "node scripts/copy-templates.js",
+    "vscode:prepublish": "npm run compile",
     "watch": "tsc -watch -p .",
     "lint": "eslint src --ext .ts",
     "test": "npm run compile && node --test dist/test/*.test.js"
@@ -982,5 +984,8 @@
     "@vscode/vsce": "^3.9.1",
     "eslint": "^10.2.1",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "handlebars": "^4.7.9"
   }
 }
