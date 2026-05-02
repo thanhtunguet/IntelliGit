@@ -528,8 +528,7 @@ export class CommandController {
     });
 
     register('intelliGit.graph.openDetails', async (arg?: unknown) => {
-      const item = asGraphItem(arg);
-      const sha = item?.commit.sha ?? (await this.pickCommitSha('Pick commit for details'));
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit for details'));
       if (!sha) {
         return;
       }

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { handleCommitAction, isCommitActionMessage, type CommitActionMessage } from './commitActions';
 import { renderTemplate } from './templateRenderer';
 import { BranchRef, GraphCommit } from '../types';
 
@@ -18,7 +19,8 @@ export interface GraphFilterHandlers {
 type IncomingMessage =
   | { type: 'apply'; filters: GraphFilters }
   | { type: 'clear' }
-  | { type: 'close' };
+  | { type: 'close' }
+  | CommitActionMessage;
 
 export class GraphFilterView {
   private static current: GraphFilterView | undefined;
@@ -85,13 +87,18 @@ export class GraphFilterView {
         subject: commit.subject,
         author: commit.author,
         date: commit.date,
-        refs: commit.refs
+        refs: commit.refs,
+        graph: commit.graph
       }))
     });
   }
 
   private async handleMessage(message: IncomingMessage): Promise<void> {
     if (!message || typeof message !== 'object') {
+      return;
+    }
+    if (isCommitActionMessage(message)) {
+      await handleCommitAction(message);
       return;
     }
     switch (message.type) {

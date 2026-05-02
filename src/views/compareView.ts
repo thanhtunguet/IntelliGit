@@ -1,26 +1,7 @@
 import * as vscode from 'vscode';
 import { renderTemplate } from './templateRenderer';
+import { handleCommitAction, isCommitActionMessage } from './commitActions';
 import { CompareResult, GraphCommit } from '../types';
-
-type CompareCommitAction =
-  | 'copyRevisionNumber'
-  | 'createPatch'
-  | 'cherryPick'
-  | 'checkoutRevision'
-  | 'showRepositoryAtRevision'
-  | 'compareWithLocal'
-  | 'resetCurrentBranchToHere'
-  | 'revertCommit'
-  | 'interactiveRebaseFromHere'
-  | 'newBranch'
-  | 'newTag'
-  | 'goToParentCommit';
-
-interface CompareCommitActionMessage {
-  readonly type: 'commitAction';
-  readonly action: CompareCommitAction;
-  readonly sha: string;
-}
 
 interface CommitClickMessage {
   readonly type: 'commitClick';
@@ -79,56 +60,11 @@ export class CompareView {
       return;
     }
 
-    if (!isCompareCommitActionMessage(message)) {
+    if (!isCommitActionMessage(message)) {
       return;
     }
 
-    const sha = message.sha.trim();
-    if (!sha) {
-      return;
-    }
-
-    switch (message.action) {
-      case 'copyRevisionNumber':
-        await vscode.env.clipboard.writeText(sha);
-        void vscode.window.setStatusBarMessage(`Copied ${sha}`, 1500);
-        return;
-      case 'createPatch':
-        await vscode.commands.executeCommand('intelliGit.graph.createPatch', sha);
-        return;
-      case 'cherryPick':
-        await vscode.commands.executeCommand('intelliGit.graph.cherryPick', sha);
-        return;
-      case 'checkoutRevision':
-        await vscode.commands.executeCommand('intelliGit.graph.checkoutCommit', sha);
-        return;
-      case 'showRepositoryAtRevision':
-        await vscode.commands.executeCommand('intelliGit.graph.showRepositoryAtRevision', sha);
-        return;
-      case 'compareWithLocal':
-        await vscode.commands.executeCommand('intelliGit.graph.compareWithCurrent', sha);
-        return;
-      case 'resetCurrentBranchToHere':
-        await vscode.commands.executeCommand('intelliGit.branch.resetCurrentToCommit', sha);
-        return;
-      case 'revertCommit':
-        await vscode.commands.executeCommand('intelliGit.graph.revert', sha);
-        return;
-      case 'interactiveRebaseFromHere':
-        await vscode.commands.executeCommand('intelliGit.graph.rebaseInteractiveFromHere', sha);
-        return;
-      case 'newBranch':
-        await vscode.commands.executeCommand('intelliGit.graph.createBranchHere', sha);
-        return;
-      case 'newTag':
-        await vscode.commands.executeCommand('intelliGit.graph.createTagHere', sha);
-        return;
-      case 'goToParentCommit':
-        await vscode.commands.executeCommand('intelliGit.graph.goToParentCommit', sha);
-        return;
-      default:
-        return;
-    }
+    await handleCommitAction(message);
   }
 
 }
@@ -205,15 +141,6 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
-}
-
-function isCompareCommitActionMessage(value: unknown): value is CompareCommitActionMessage {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return candidate.type === 'commitAction' && typeof candidate.action === 'string' && typeof candidate.sha === 'string';
 }
 
 function isCommitClickMessage(value: unknown): value is CommitClickMessage {

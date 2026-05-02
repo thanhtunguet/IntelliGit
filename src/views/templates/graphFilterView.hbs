@@ -1,5 +1,10 @@
 {{> partials/documentStart title="Filter Graph"}}
     {{> partials/styles/theme}}
+    :root {
+      --menu-bg: color-mix(in srgb, var(--bg), black 8%);
+      --menu-hover: color-mix(in srgb, var(--accent), transparent 75%);
+      --menu-separator: color-mix(in srgb, var(--border), transparent 25%);
+    }
     {{> partials/styles/bodyBase background="var(--bg)" padding="14px 16px" gap="10px"}}
     h1 {
       margin: 0;
@@ -108,13 +113,77 @@
       flex: 1;
     }
     {{> partials/styles/tableBase cellPadding="5px 6px"}}
-    th, td {
+    col.col-graph  { width: 24px; }
+    col.col-author { width: 130px; }
+    col.col-date   { width: 112px; }
+    .col-graph {
+      font-family: var(--vscode-editor-font-family);
+      text-align: center;
+      color: var(--muted);
+      user-select: none;
+      cursor: pointer;
+      width: 24px;
+    }
+    .col-graph:hover { color: var(--fg); }
+    .col-subject {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .col-author, .col-date {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .col-sha { width: 90px; font-family: var(--vscode-editor-font-family); }
-    .col-date { width: 130px; }
+    .commit-row {
+      cursor: pointer;
+    }
+    .commit-row:hover {
+      background: color-mix(in srgb, var(--accent), transparent 90%);
+    }
+    .context-menu {
+      position: fixed;
+      z-index: 1000;
+      min-width: 260px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      background: var(--menu-bg);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      display: none;
+      backdrop-filter: blur(12px);
+    }
+    .context-menu.visible {
+      display: block;
+    }
+    .menu-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .menu-item:hover {
+      background: var(--menu-hover);
+    }
+    .menu-item:disabled {
+      color: var(--muted);
+      cursor: default;
+      opacity: 0.65;
+    }
+    .menu-item:disabled:hover {
+      background: transparent;
+    }
+    .menu-separator {
+      height: 1px;
+      margin: 6px 2px;
+      background: var(--menu-separator);
+      border: 0;
+    }
   </style>
 </head>
 <body>
@@ -166,8 +235,9 @@
       <div class="preview-header" id="preview-header">Matching commits: 0</div>
       <div class="preview-table-wrap">
         <table>
+          <colgroup><col class="col-graph"><col class="col-subject"><col class="col-author"><col class="col-date"></colgroup>
           <thead>
-            <tr><th class="col-sha">SHA</th><th>Subject</th><th>Author</th><th class="col-date">Date</th></tr>
+            <tr><th class="col-graph"></th><th class="col-subject">Subject</th><th class="col-author">Author</th><th class="col-date">Date</th></tr>
           </thead>
           <tbody id="preview-body"></tbody>
         </table>
@@ -180,6 +250,8 @@
       <button type="submit" class="primary" id="apply">Apply</button>
     </div>
   </form>
+
+  {{> partials/compareContextMenu}}
 
   <script>
     const vscode = acquireVsCodeApi();
@@ -197,7 +269,9 @@
     const untilInput = document.getElementById('until');
     const previewHeader = document.getElementById('preview-header');
     const previewBody = document.getElementById('preview-body');
+    const menu = document.getElementById('commit-context-menu');
     const fieldClearButtons = Array.from(document.querySelectorAll('.field-clear'));
+    let selectedCommit = null;
 
     window.addEventListener('message', (event) => {
       const msg = event.data;
@@ -238,6 +312,13 @@
       if (!value) { return undefined; }
       const timestamp = new Date(value + 'T23:59:59.999').getTime();
       return Number.isFinite(timestamp) ? timestamp : undefined;
+    }
+
+    function renderGraphGlyph(graph) {
+      if (graph === '<') { return '◀'; }
+      if (graph === '>') { return '▶'; }
+      if (graph === '-') { return '●'; }
+      return '○';
     }
 
     function scoreMatch(candidate, keyword) {
@@ -291,16 +372,98 @@
         return;
       }
       previewBody.innerHTML = shown.map((commit) => {
-        const shortSha = escapeHtml(commit.shortSha || String(commit.sha || '').slice(0, 8));
+        const sha = escapeHtml(commit.sha || '');
         const subject = escapeHtml(commit.subject || '');
         const author = escapeHtml(commit.author || '');
+        const graph = escapeHtml(renderGraphGlyph(commit.graph));
         const date = new Date(commit.date || '');
-        const dateText = Number.isFinite(date.getTime())
-          ? escapeHtml(date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))
+        const timestamp = Number.isFinite(date.getTime()) ? date.getTime() : 0;
+        const full = Number.isFinite(date.getTime())
+          ? escapeHtml(date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' }))
           : '';
-        return '<tr><td class="col-sha">' + shortSha + '</td><td title="' + subject + '">' + subject + '</td><td title="' + author + '">' + author + '</td><td class="col-date">' + dateText + '</td></tr>';
+        const dateText = Number.isFinite(date.getTime())
+          ? escapeHtml(date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))
+          : '';
+        return '<tr class="commit-row" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
       }).join('');
     }
+
+    const closeMenu = () => {
+      menu.classList.remove('visible');
+      selectedCommit = null;
+    };
+
+    const openMenu = (x, y, payload) => {
+      selectedCommit = payload;
+      menu.style.left = '0px';
+      menu.style.top = '0px';
+      menu.classList.add('visible');
+
+      const menuRect = menu.getBoundingClientRect();
+      const maxX = Math.max(8, window.innerWidth - menuRect.width - 8);
+      const maxY = Math.max(8, window.innerHeight - menuRect.height - 8);
+      const targetX = Math.max(8, Math.min(x, maxX));
+      const targetY = Math.max(8, Math.min(y, maxY));
+
+      menu.style.left = targetX + 'px';
+      menu.style.top = targetY + 'px';
+    };
+
+    document.addEventListener('click', (event) => {
+      if (menu.classList.contains('visible')) {
+        if (!menu.contains(event.target)) { closeMenu(); }
+        return;
+      }
+      const row = event.target && event.target.closest ? event.target.closest('.commit-row') : null;
+      if (!row) { return; }
+      const sha = row.getAttribute('data-sha') || '';
+      if (!sha) { return; }
+      const graphCell = event.target && event.target.closest ? event.target.closest('.col-graph.copyable') : null;
+      if (graphCell) {
+        event.stopPropagation();
+        vscode.postMessage({ type: 'commitAction', action: 'copyRevisionNumber', sha });
+        return;
+      }
+      vscode.postMessage({ type: 'commitAction', action: 'openDetails', sha });
+    });
+
+    document.addEventListener('contextmenu', (event) => {
+      const row = event.target && event.target.closest ? event.target.closest('.commit-row') : null;
+      if (!row) {
+        closeMenu();
+        return;
+      }
+
+      event.preventDefault();
+      const sha = row.getAttribute('data-sha') || '';
+      if (!sha) {
+        return;
+      }
+
+      openMenu(event.clientX, event.clientY, { sha });
+    });
+
+    menu.addEventListener('click', (event) => {
+      const target = event.target && event.target.closest ? event.target.closest('.menu-item[data-action]') : null;
+      if (!target || target.disabled || !selectedCommit) {
+        return;
+      }
+
+      const action = target.getAttribute('data-action');
+      if (!action) {
+        return;
+      }
+
+      vscode.postMessage({
+        type: 'commitAction',
+        action,
+        sha: selectedCommit.sha
+      });
+      closeMenu();
+    });
+
+    window.addEventListener('blur', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
 
     function createAutocomplete(input, list) {
       const model = { source: [], suggestions: [], activeIndex: -1 };
@@ -446,6 +609,10 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (menu.classList.contains('visible')) {
+          closeMenu();
+          return;
+        }
         vscode.postMessage({ type: 'close' });
       }
     });
