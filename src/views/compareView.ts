@@ -206,7 +206,7 @@ function renderCompareHtml(result: CompareResult): string {
     .filter-actions {
       display: flex;
       justify-content: flex-end;
-      align-items: center;
+      align-items: flex-end;
       height: 100%;
     }
     .filter-clear {
