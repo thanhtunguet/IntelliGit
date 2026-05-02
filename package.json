@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "IntelliGit Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows, inspired by IntelliJ Git integration.",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "publisher": "thanhtunguet",
   "icon": "media/intelligit.png",
   "main": "./dist/extension.js",
@@ -46,6 +46,13 @@
           "title": "IntelliGit",
           "icon": "media/intelligit.svg"
         }
+      ],
+      "panel": [
+        {
+          "id": "intelliGit.repoStructure",
+          "title": "Repo Structure",
+          "icon": "media/icon-repo-structure.svg"
+        }
       ]
     },
     "views": {
@@ -81,20 +88,20 @@
           "icon": "media/icon-stashes.svg"
         }
       ],
-      "panel": [
-        {
-          "id": "intelliGit.submodules",
-          "name": "Submodules",
-          "contextualTitle": "Manage nested git submodule repositories",
-          "visibility": "visible",
-          "icon": "media/icon-submodules.svg"
-        },
+      "intelliGit.repoStructure": [
         {
           "id": "intelliGit.worktrees",
           "name": "Worktrees",
           "contextualTitle": "Manage git worktrees for parallel development",
           "visibility": "visible",
           "icon": "media/icon-worktrees.svg"
+        },
+        {
+          "id": "intelliGit.submodules",
+          "name": "Submodules",
+          "contextualTitle": "Manage nested git submodule repositories",
+          "visibility": "visible",
+          "icon": "media/icon-submodules.svg"
         }
       ]
     },

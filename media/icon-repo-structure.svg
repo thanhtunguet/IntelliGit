@@ -1,0 +1,31 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left half: two stacked worktree boxes (blue) -->
+  <rect x="6" y="18" width="52" height="38" rx="4" fill="#0d1117" stroke="#58a6ff" stroke-width="6"/>
+  <line x1="14" y1="30" x2="50" y2="30" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="14" y1="39" x2="42" y2="39" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="14" y1="48" x2="36" y2="48" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+
+  <rect x="6" y="72" width="52" height="38" rx="4" fill="#0d1117" stroke="#58a6ff" stroke-width="6"/>
+  <line x1="14" y1="84" x2="50" y2="84" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="14" y1="93" x2="42" y2="93" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="14" y1="102" x2="36" y2="102" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Subtle centre divider -->
+  <line x1="64" y1="8" x2="64" y2="120" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Right half: outer repo folder (orange) -->
+  <rect x="70" y="12" width="52" height="104" rx="5" fill="#0d1117" stroke="#f0883e" stroke-width="6"/>
+  <!-- Outer folder tab -->
+  <rect x="76" y="6" width="22" height="10" rx="3" fill="#0d1117" stroke="#f0883e" stroke-width="4.5"/>
+
+  <!-- Inner nested submodule box (orange, lower opacity) -->
+  <rect x="78" y="34" width="36" height="68" rx="3.5" fill="#0d1117" stroke="#f0883e" stroke-width="4.5" opacity="0.75"/>
+  <!-- Inner folder tab -->
+  <rect x="82" y="28" width="16" height="9" rx="2.5" fill="#0d1117" stroke="#f0883e" stroke-width="3.5" opacity="0.75"/>
+
+  <!-- Mini branch graph inside inner box -->
+  <line x1="92" y1="94" x2="92" y2="56" stroke="#f0883e" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  <path d="M92 68 C92 58, 108 58, 108 50" stroke="#f0883e" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.65"/>
+  <circle cx="92" cy="96" r="5" fill="#0d1117" stroke="#f0883e" stroke-width="3.5" opacity="0.9"/>
+  <circle cx="108" cy="48" r="5" fill="#0d1117" stroke="#f0883e" stroke-width="3.5" opacity="0.65"/>
+</svg>
