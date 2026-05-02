@@ -204,6 +204,40 @@ function renderCompareHtml(result: CompareResult): string {
       font: inherit;
       padding: 6px 8px;
     }
+    .input-shell {
+      position: relative;
+    }
+    .input-shell .filter-input {
+      padding-right: 28px;
+    }
+    .field-clear {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 14px;
+      line-height: 18px;
+      text-align: center;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 120ms ease;
+    }
+    .input-shell:hover .field-clear,
+    .input-shell:focus-within .field-clear {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .field-clear:hover {
+      color: var(--fg);
+      background: color-mix(in srgb, var(--accent), transparent 88%);
+    }
     .filter-actions {
       display: flex;
       justify-content: flex-end;
@@ -386,16 +420,25 @@ function renderCompareHtml(result: CompareResult): string {
   <section class="filters">
     <label class="filter-field">
       <span class="filter-label">Author</span>
-      <input id="filter-author" class="filter-input" type="text" autocomplete="off" placeholder="Type author name" />
-      <div id="author-autocomplete" class="author-autocomplete" role="listbox" aria-label="Author suggestions"></div>
+      <div class="input-shell">
+        <input id="filter-author" class="filter-input" type="text" autocomplete="off" placeholder="Type author name" />
+        <button type="button" class="field-clear" data-target="filter-author" aria-label="Clear Author" title="Clear">×</button>
+        <div id="author-autocomplete" class="author-autocomplete" role="listbox" aria-label="Author suggestions"></div>
+      </div>
     </label>
     <label class="filter-field">
       <span class="filter-label">Từ ngày</span>
-      <input id="filter-since" class="filter-input" type="date" />
+      <div class="input-shell">
+        <input id="filter-since" class="filter-input" type="date" />
+        <button type="button" class="field-clear" data-target="filter-since" aria-label="Clear Từ ngày" title="Clear">×</button>
+      </div>
     </label>
     <label class="filter-field">
       <span class="filter-label">Đến ngày</span>
-      <input id="filter-until" class="filter-input" type="date" />
+      <div class="input-shell">
+        <input id="filter-until" class="filter-input" type="date" />
+        <button type="button" class="field-clear" data-target="filter-until" aria-label="Clear Đến ngày" title="Clear">×</button>
+      </div>
     </label>
     <div class="filter-actions">
       <button id="filter-clear" class="filter-clear" type="button">Clear filters</button>
@@ -461,6 +504,7 @@ function renderCompareHtml(result: CompareResult): string {
     const sinceInput = document.getElementById('filter-since');
     const untilInput = document.getElementById('filter-until');
     const clearButton = document.getElementById('filter-clear');
+    const fieldClearButtons = Array.from(document.querySelectorAll('.field-clear'));
     let selectedCommit = null;
     let authorSuggestions = [];
     let authorActiveIndex = -1;
@@ -751,6 +795,27 @@ function renderCompareHtml(result: CompareResult): string {
         applyFilters();
       });
     }
+    fieldClearButtons.forEach((button) => {
+      button.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+      });
+      button.addEventListener('click', () => {
+        const targetId = button.getAttribute('data-target') || '';
+        if (!targetId) {
+          return;
+        }
+        const target = document.getElementById(targetId);
+        if (!target) {
+          return;
+        }
+        target.value = '';
+        if (targetId === 'filter-author') {
+          closeAuthorDropdown();
+          target.focus();
+        }
+        applyFilters();
+      });
+    });
     if (authorAutocomplete) {
       authorAutocomplete.addEventListener('mousedown', (event) => {
         event.preventDefault();
