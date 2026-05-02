@@ -742,7 +742,8 @@ export class CommandController {
         },
         () => ({
           filters: this.state.graphFilters,
-          branches: this.state.branches
+          branches: this.state.branches,
+          commits: this.state.graph
         })
       );
     });
