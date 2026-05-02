@@ -141,6 +141,54 @@
     .commit-row:hover {
       background: color-mix(in srgb, var(--accent), transparent 90%);
     }
+    .commit-row.expanded {
+      background: color-mix(in srgb, var(--accent), transparent 94%);
+    }
+    .commit-files-row td {
+      padding: 0;
+      background: color-mix(in srgb, var(--bg), white 2%);
+      border-top: 0;
+    }
+    .commit-files-tree {
+      padding: 4px 0 6px;
+      font-size: 11px;
+    }
+    .commit-file-entry {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      text-align: left;
+      padding: 3px 8px;
+      cursor: pointer;
+    }
+    .commit-file-entry:hover {
+      background: color-mix(in srgb, var(--accent), transparent 90%);
+    }
+    .commit-file-entry.folder {
+      color: var(--muted);
+      cursor: default;
+      font-weight: 600;
+    }
+    .commit-file-entry.folder:hover {
+      background: transparent;
+    }
+    .commit-file-icon {
+      flex: 0 0 auto;
+      width: 14px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .commit-file-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .context-menu {
       position: fixed;
       z-index: 1000;
@@ -262,6 +310,9 @@
       authors: [],
       commits: []
     };
+    const commitFilesBySha = new Map();
+    const loadingCommitFiles = new Set();
+    let expandedSha = null;
     const messageInput = document.getElementById('message');
     const branchInput = document.getElementById('branch');
     const authorInput = document.getElementById('author');
@@ -289,6 +340,11 @@
         ).sort((a, b) => a.localeCompare(b));
         branchAutocomplete.setSource(state.branches);
         authorAutocomplete.setSource(state.authors);
+        renderPreview();
+      } else if (msg && msg.type === 'commitFiles') {
+        const sha = String(msg.sha || '');
+        loadingCommitFiles.delete(sha);
+        commitFilesBySha.set(sha, Array.isArray(msg.files) ? msg.files : []);
         renderPreview();
       }
     });
@@ -319,6 +375,58 @@
       if (graph === '>') { return '▶'; }
       if (graph === '-') { return '●'; }
       return '○';
+    }
+
+    function buildFileTree(files) {
+      const root = { name: '', path: '', folders: new Map(), files: [] };
+      files.forEach((filePath) => {
+        const parts = String(filePath || '').split('/').filter(Boolean);
+        if (parts.length === 0) { return; }
+        let node = root;
+        parts.slice(0, -1).forEach((part) => {
+          if (!node.folders.has(part)) {
+            node.folders.set(part, { name: part, path: node.path ? node.path + '/' + part : part, folders: new Map(), files: [] });
+          }
+          node = node.folders.get(part);
+        });
+        node.files.push({ name: parts[parts.length - 1], path: filePath });
+      });
+      return root;
+    }
+
+    function renderFileTreeNode(node, depth) {
+      const folders = Array.from(node.folders.values()).sort((a, b) => a.name.localeCompare(b.name));
+      const files = node.files.sort((a, b) => a.path.localeCompare(b.path));
+      return folders.map((folder) => {
+        const row = '<div class="commit-file-entry folder" style="padding-left: ' + (8 + depth * 16) + 'px"><span class="commit-file-icon">▸</span><span class="commit-file-name">' + escapeHtml(folder.name) + '</span></div>';
+        return row + renderFileTreeNode(folder, depth + 1);
+      }).join('') + files.map((file) => {
+        const safePath = escapeHtml(file.path);
+        return '<button type="button" class="commit-file-entry file" data-file-path="' + safePath + '" title="' + safePath + '" style="padding-left: ' + (8 + depth * 16) + 'px"><span class="commit-file-icon">•</span><span class="commit-file-name">' + escapeHtml(file.name) + '</span></button>';
+      }).join('');
+    }
+
+    function renderCommitFiles(sha) {
+      if (loadingCommitFiles.has(sha)) {
+        return '<div class="commit-files-tree"><div class="commit-file-entry folder"><span class="commit-file-icon"></span><span class="commit-file-name">Loading changed files...</span></div></div>';
+      }
+      const files = commitFilesBySha.get(sha);
+      if (!files) {
+        return '';
+      }
+      if (files.length === 0) {
+        return '<div class="commit-files-tree"><div class="commit-file-entry folder"><span class="commit-file-icon"></span><span class="commit-file-name">No changed files</span></div></div>';
+      }
+      return '<div class="commit-files-tree">' + renderFileTreeNode(buildFileTree(files), 0) + '</div>';
+    }
+
+    function toggleCommitFiles(sha) {
+      expandedSha = expandedSha === sha ? null : sha;
+      if (expandedSha && !commitFilesBySha.has(expandedSha) && !loadingCommitFiles.has(expandedSha)) {
+        loadingCommitFiles.add(expandedSha);
+        vscode.postMessage({ type: 'loadCommitFiles', sha: expandedSha });
+      }
+      renderPreview();
     }
 
     function scoreMatch(candidate, keyword) {
@@ -373,6 +481,7 @@
       }
       previewBody.innerHTML = shown.map((commit) => {
         const sha = escapeHtml(commit.sha || '');
+        const rawSha = String(commit.sha || '');
         const subject = escapeHtml(commit.subject || '');
         const author = escapeHtml(commit.author || '');
         const graph = escapeHtml(renderGraphGlyph(commit.graph));
@@ -384,7 +493,12 @@
         const dateText = Number.isFinite(date.getTime())
           ? escapeHtml(date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))
           : '';
-        return '<tr class="commit-row" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
+        const expanded = expandedSha === rawSha;
+        const row = '<tr class="commit-row' + (expanded ? ' expanded' : '') + '" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
+        if (!expanded) {
+          return row;
+        }
+        return row + '<tr class="commit-files-row" data-parent-sha="' + sha + '"><td colspan="4">' + renderCommitFiles(rawSha) + '</td></tr>';
       }).join('');
     }
 
@@ -415,6 +529,16 @@
         return;
       }
       const row = event.target && event.target.closest ? event.target.closest('.commit-row') : null;
+      const file = event.target && event.target.closest ? event.target.closest('.commit-file-entry.file[data-file-path]') : null;
+      if (file) {
+        const filesRow = file.closest('.commit-files-row');
+        const sha = filesRow ? filesRow.getAttribute('data-parent-sha') || '' : '';
+        const filePath = file.getAttribute('data-file-path') || '';
+        if (sha && filePath) {
+          vscode.postMessage({ type: 'openCommitFile', sha, filePath });
+        }
+        return;
+      }
       if (!row) { return; }
       const sha = row.getAttribute('data-sha') || '';
       if (!sha) { return; }
@@ -424,7 +548,7 @@
         vscode.postMessage({ type: 'commitAction', action: 'copyRevisionNumber', sha });
         return;
       }
-      vscode.postMessage({ type: 'commitAction', action: 'openDetails', sha });
+      toggleCommitFiles(sha);
     });
 
     document.addEventListener('contextmenu', (event) => {

@@ -828,7 +828,9 @@ export class CommandController {
           clear: async () => {
             await this.state.clearGraphFilters();
             await vscode.commands.executeCommand('setContext', 'intelliGit.graphFilterActive', false);
-          }
+          },
+          getCommitFiles: async (sha) => this.git.getFilesInCommit(sha),
+          openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath)
         },
         () => ({
           filters: this.state.graphFilters,

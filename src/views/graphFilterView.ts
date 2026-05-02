@@ -14,12 +14,16 @@ export interface GraphFilters {
 export interface GraphFilterHandlers {
   apply(filters: GraphFilters): Promise<void>;
   clear(): Promise<void>;
+  getCommitFiles(sha: string): Promise<string[]>;
+  openFileDiff(sha: string, filePath: string): Promise<void>;
 }
 
 type IncomingMessage =
   | { type: 'apply'; filters: GraphFilters }
   | { type: 'clear' }
   | { type: 'close' }
+  | { type: 'loadCommitFiles'; sha: string }
+  | { type: 'openCommitFile'; sha: string; filePath: string }
   | CommitActionMessage;
 
 export class GraphFilterView {
@@ -113,6 +117,24 @@ export class GraphFilterView {
       case 'close':
         this.panel.dispose();
         return;
+      case 'loadCommitFiles': {
+        const sha = message.sha.trim();
+        if (!sha) {
+          return;
+        }
+        const files = await this.handlers.getCommitFiles(sha);
+        void this.panel.webview.postMessage({ type: 'commitFiles', sha, files });
+        return;
+      }
+      case 'openCommitFile': {
+        const sha = message.sha.trim();
+        const filePath = message.filePath.trim();
+        if (!sha || !filePath) {
+          return;
+        }
+        await this.handlers.openFileDiff(sha, filePath);
+        return;
+      }
     }
   }
 
