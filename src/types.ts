@@ -117,3 +117,65 @@ export interface WorkingTreeChange {
   readonly status: string;
   readonly path: string;
 }
+
+// ── Worktree types ────────────────────────────────────────────────────────────
+
+export interface WorktreeEntry {
+  readonly worktreePath: string;
+  readonly headSha: string;
+  readonly branch: string | undefined;
+  readonly isBare: boolean;
+  readonly isDetached: boolean;
+  readonly isCurrent: boolean;
+  readonly isLocked: boolean;
+  readonly lockReason: string | undefined;
+  readonly isPrunable: boolean;
+  readonly isDirty: boolean;
+  readonly ahead: number;
+  readonly behind: number;
+  readonly headSubject: string | undefined;
+}
+
+export interface WorktreeStatus {
+  readonly isDirty: boolean;
+  readonly ahead: number;
+  readonly behind: number;
+}
+
+export interface WorktreePruneEntry {
+  readonly worktreePath: string;
+  readonly reason: string;
+}
+
+// ── Submodule types ───────────────────────────────────────────────────────────
+
+export interface SubmoduleEntry {
+  readonly path: string;
+  readonly name: string;
+  readonly url: string;
+  readonly branch: string | undefined;
+  readonly currentSha: string | undefined;
+  readonly recordedSha: string | undefined;
+  readonly isInitialized: boolean;
+  readonly isDirty: boolean;
+  readonly isPointerMismatch: boolean;
+  readonly ahead: number;
+  readonly behind: number;
+  readonly submodules: SubmoduleEntry[];
+}
+
+export interface SubmoduleConfigEntry {
+  readonly name: string;
+  readonly path: string;
+  readonly url: string;
+  readonly branch: string | undefined;
+}
+
+export interface SubmoduleStatusEntry {
+  readonly path: string;
+  readonly sha: string;
+  readonly isUninitialized: boolean;
+  readonly isDirty: boolean;
+  readonly isPointerMismatch: boolean;
+  readonly isNested: boolean;
+}

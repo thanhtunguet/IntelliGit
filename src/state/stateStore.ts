@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import { GitService } from '../services/gitService';
-import { BranchRef, ComparePair, CompareResult, GitOperationState, GraphCommit, MergeConflictFile, StashEntry, TagRef, WorkingTreeChange } from '../types';
+import { BranchRef, ComparePair, CompareResult, GitOperationState, GraphCommit, MergeConflictFile, StashEntry, SubmoduleEntry, TagRef, WorkingTreeChange, WorktreeEntry } from '../types';
 
 export class StateStore {
   private _branches: BranchRef[] = [];
@@ -13,6 +13,8 @@ export class StateStore {
   private _operationState: GitOperationState = { kind: 'none' };
   private _conflicts: MergeConflictFile[] = [];
   private _recentComparePairs: ComparePair[] = [];
+  private _worktrees: WorktreeEntry[] = [];
+  private _submodules: SubmoduleEntry[] = [];
   private _graphFilters: {
     branch?: string;
     author?: string;
@@ -88,6 +90,14 @@ export class StateStore {
     return { ...this._graphFilters };
   }
 
+  get worktrees(): WorktreeEntry[] {
+    return this._worktrees;
+  }
+
+  get submodules(): SubmoduleEntry[] {
+    return this._submodules;
+  }
+
   async refreshAll(): Promise<void> {
     if (!(await this.git.isRepo())) {
       this._branches = [];
@@ -98,20 +108,24 @@ export class StateStore {
       this._compareResult = undefined;
       this._operationState = { kind: 'none' };
       this._conflicts = [];
+      this._worktrees = [];
+      this._submodules = [];
       this.emitter.fire();
       return;
     }
 
     const maxGraphCommits = this.configuration.get<number>('maxGraphCommits', 200);
 
-    const [branches, tags, stashes, changes, graph, operationState, conflicts] = await Promise.all([
+    const [branches, tags, stashes, changes, graph, operationState, conflicts, worktrees, submodules] = await Promise.all([
       this.git.getBranches(),
       this.git.getTags(),
       this.git.getStashes(),
       this.git.getChangedFiles(),
       this.git.getGraph(maxGraphCommits, this._graphFilters),
       this.git.getOperationState(),
-      this.git.getMergeConflicts()
+      this.git.getMergeConflicts(),
+      this.git.getWorktrees().catch(() => [] as WorktreeEntry[]),
+      this.git.getSubmodules().catch(() => [] as SubmoduleEntry[])
     ]);
 
     this._branches = branches;
@@ -121,8 +135,11 @@ export class StateStore {
     this._graph = graph;
     this._operationState = operationState;
     this._conflicts = conflicts;
+    this._worktrees = worktrees;
+    this._submodules = submodules;
     void vscode.commands.executeCommand('setContext', 'intelliGit.operation', operationState.kind);
     void vscode.commands.executeCommand('setContext', 'intelliGit.hasConflicts', conflicts.length > 0);
+    void vscode.commands.executeCommand('setContext', 'intelliGit.hasSubmodules', submodules.length > 0);
     this.emitter.fire();
   }
 
@@ -135,6 +152,17 @@ export class StateStore {
 
   async refreshStashes(): Promise<void> {
     this._stashes = await this.git.getStashes();
+    this.emitter.fire();
+  }
+
+  async refreshWorktrees(): Promise<void> {
+    this._worktrees = await this.git.getWorktrees().catch(() => []);
+    this.emitter.fire();
+  }
+
+  async refreshSubmodules(): Promise<void> {
+    this._submodules = await this.git.getSubmodules().catch(() => []);
+    void vscode.commands.executeCommand('setContext', 'intelliGit.hasSubmodules', this._submodules.length > 0);
     this.emitter.fire();
   }
 
@@ -200,6 +228,29 @@ export class StateStore {
     gitWatcher.onDidChange(onChange, this, context.subscriptions);
     gitWatcher.onDidDelete(onChange, this, context.subscriptions);
     context.subscriptions.push(gitWatcher);
+
+    const worktreeWatcher = vscode.workspace.createFileSystemWatcher('**/.git/worktrees/**');
+    const modulesWatcher = vscode.workspace.createFileSystemWatcher('**/.git/modules/**');
+    const gitmodulesWatcher = vscode.workspace.createFileSystemWatcher('**/.gitmodules');
+
+    const onWorktreeChange = async (): Promise<void> => {
+      try { await this.refreshWorktrees(); } catch (e) { this.logger.warn(`Worktree refresh failed: ${String(e)}`); }
+    };
+    const onSubmoduleChange = async (): Promise<void> => {
+      try { await this.refreshSubmodules(); } catch (e) { this.logger.warn(`Submodule refresh failed: ${String(e)}`); }
+    };
+
+    worktreeWatcher.onDidCreate(onWorktreeChange, this, context.subscriptions);
+    worktreeWatcher.onDidChange(onWorktreeChange, this, context.subscriptions);
+    worktreeWatcher.onDidDelete(onWorktreeChange, this, context.subscriptions);
+    modulesWatcher.onDidCreate(onSubmoduleChange, this, context.subscriptions);
+    modulesWatcher.onDidChange(onSubmoduleChange, this, context.subscriptions);
+    modulesWatcher.onDidDelete(onSubmoduleChange, this, context.subscriptions);
+    gitmodulesWatcher.onDidCreate(onSubmoduleChange, this, context.subscriptions);
+    gitmodulesWatcher.onDidChange(onSubmoduleChange, this, context.subscriptions);
+    gitmodulesWatcher.onDidDelete(onSubmoduleChange, this, context.subscriptions);
+
+    context.subscriptions.push(worktreeWatcher, modulesWatcher, gitmodulesWatcher);
 
     // Catch commits made outside VS Code (e.g. terminal, other Git clients):
     // when `files.watcherExclude` blocks .git/index events, the git watcher

@@ -6,6 +6,8 @@ import { BranchTreeItem } from '../providers/branchTreeProvider';
 import { CommitActionContext, CommitFileTreeItem, RevisionFileTreeItem } from '../providers/commitFilesTreeProvider';
 import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
+import { WorktreeTreeItem } from '../providers/worktreeTreeProvider';
+import { SubmoduleTreeItem } from '../providers/submoduleTreeProvider';
 import { GitService } from '../services/gitService';
 import { expandTemplate, loadTemplates } from '../state/commitTemplates';
 import { StateStore } from '../state/stateStore';
@@ -1148,6 +1150,359 @@ export class CommandController {
       const doc = await vscode.workspace.openTextDocument({ language: 'plaintext', content: blame });
       await vscode.window.showTextDocument(doc, { preview: false });
     });
+
+    // ── Worktree commands ──────────────────────────────────────────────────
+
+    register('intelliGit.worktree.refresh', async () => {
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.open', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      const worktreePath = item?.worktree.worktreePath;
+      if (!worktreePath) { return; }
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(worktreePath), { forceReuseWindow: true });
+    });
+
+    register('intelliGit.worktree.openInNewWindow', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      const worktreePath = item?.worktree.worktreePath;
+      if (!worktreePath) { return; }
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(worktreePath), { forceNewWindow: true });
+    });
+
+    register('intelliGit.worktree.addFromBranch', async () => {
+      const branches = this.state.branches.filter((b) => b.type === 'local');
+      const picked = await vscode.window.showQuickPick(
+        branches.map((b) => ({ label: b.name })),
+        { title: 'Add worktree from branch', placeHolder: 'Select branch' }
+      );
+      if (!picked) { return; }
+
+      const targetPath = await vscode.window.showInputBox({
+        title: 'Worktree path',
+        placeHolder: '../my-worktree',
+        validateInput: (v) => v.trim() ? undefined : 'Path is required'
+      });
+      if (!targetPath) { return; }
+
+      await this.git.addWorktree(targetPath.trim(), picked.label);
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.addNewBranch', async () => {
+      const branchName = await vscode.window.showInputBox({
+        title: 'New branch name',
+        placeHolder: 'feature/my-branch',
+        validateInput: (v) => v.trim() ? undefined : 'Branch name is required'
+      });
+      if (!branchName) { return; }
+
+      const base = await this.pickBranchName('Select base branch (optional — press Enter to skip)');
+
+      const targetPath = await vscode.window.showInputBox({
+        title: 'Worktree path',
+        placeHolder: '../my-worktree',
+        validateInput: (v) => v.trim() ? undefined : 'Path is required'
+      });
+      if (!targetPath) { return; }
+
+      await this.git.addWorktreeBranch(targetPath.trim(), branchName.trim(), base ?? undefined);
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.addDetached', async () => {
+      const ref = await vscode.window.showInputBox({
+        title: 'Detached worktree at ref',
+        placeHolder: 'HEAD, commit SHA, or tag',
+        validateInput: (v) => v.trim() ? undefined : 'Ref is required'
+      });
+      if (!ref) { return; }
+
+      const targetPath = await vscode.window.showInputBox({
+        title: 'Worktree path',
+        placeHolder: '../my-worktree',
+        validateInput: (v) => v.trim() ? undefined : 'Path is required'
+      });
+      if (!targetPath) { return; }
+
+      const confirmed = await confirmDangerousAction({
+        title: 'Add detached worktree',
+        detail: `This creates a worktree in detached HEAD state at ${ref}`,
+        acceptLabel: 'Create Detached'
+      });
+      if (!confirmed) { return; }
+
+      await this.git.addDetachedWorktree(targetPath.trim(), ref.trim());
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.remove', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      if (!item) { return; }
+      const { worktree } = item;
+
+      if (worktree.isCurrent) {
+        void vscode.window.showWarningMessage('Cannot remove the current worktree.');
+        return;
+      }
+
+      if (worktree.isLocked) {
+        void vscode.window.showWarningMessage('Unlock the worktree before removing it.');
+        return;
+      }
+
+      if (worktree.isDirty) {
+        const confirmed = await confirmDangerousAction({
+          title: 'Remove dirty worktree',
+          detail: `${worktree.worktreePath} has uncommitted changes. They will be lost.`,
+          acceptLabel: 'Remove anyway'
+        });
+        if (!confirmed) { return; }
+      } else {
+        const confirmed = await confirmDangerousAction({
+          title: 'Remove worktree',
+          detail: worktree.worktreePath,
+          acceptLabel: 'Remove'
+        });
+        if (!confirmed) { return; }
+      }
+
+      await this.git.removeWorktree(worktree.worktreePath);
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.removeForce', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      if (!item) { return; }
+      const { worktree } = item;
+
+      if (worktree.isCurrent) {
+        void vscode.window.showWarningMessage('Cannot remove the current worktree.');
+        return;
+      }
+
+      const confirmed = await confirmDangerousAction({
+        title: 'Force remove worktree',
+        detail: `${worktree.worktreePath} — all local changes will be lost. This cannot be undone.`,
+        acceptLabel: 'Force Remove'
+      });
+      if (!confirmed) { return; }
+
+      await this.git.removeWorktree(worktree.worktreePath, true);
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.lock', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      if (!item) { return; }
+
+      const reason = await vscode.window.showInputBox({
+        title: 'Lock reason (optional)',
+        placeHolder: 'e.g. long-running experiment'
+      });
+
+      await this.git.lockWorktree(item.worktree.worktreePath, reason?.trim() || undefined);
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.unlock', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      if (!item) { return; }
+
+      await this.git.unlockWorktree(item.worktree.worktreePath);
+      await this.state.refreshWorktrees();
+    });
+
+    register('intelliGit.worktree.prunePreview', async () => {
+      const prunable = await this.git.getPrunableWorktrees();
+      if (prunable.length === 0) {
+        void vscode.window.showInformationMessage('No prunable worktrees found.');
+        return;
+      }
+
+      const items = prunable.map((p) => ({ label: p.worktreePath, description: p.reason }));
+      await vscode.window.showQuickPick(items, {
+        title: 'Prunable worktrees (dry run)',
+        placeHolder: 'These worktrees would be pruned',
+        canPickMany: false
+      });
+    });
+
+    register('intelliGit.worktree.prune', async () => {
+      const prunable = await this.git.getPrunableWorktrees();
+      if (prunable.length === 0) {
+        void vscode.window.showInformationMessage('No prunable worktrees found.');
+        return;
+      }
+
+      const items = prunable.map((p) => ({ label: p.worktreePath, description: p.reason }));
+      const confirmed = await vscode.window.showQuickPick(items, {
+        title: `Prune ${prunable.length} stale worktree(s)?`,
+        placeHolder: 'Review — confirm by pressing Enter',
+        canPickMany: false
+      });
+      if (!confirmed) { return; }
+
+      await this.git.pruneWorktrees();
+      await this.state.refreshWorktrees();
+      void vscode.window.showInformationMessage('Stale worktrees pruned.');
+    });
+
+    register('intelliGit.worktree.revealInFinder', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      if (!item) { return; }
+      await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(item.worktree.worktreePath));
+    });
+
+    register('intelliGit.worktree.openTerminal', async (arg?: unknown) => {
+      const item = arg instanceof WorktreeTreeItem ? arg : undefined;
+      if (!item) { return; }
+      const terminal = vscode.window.createTerminal({ cwd: item.worktree.worktreePath, name: `Worktree: ${item.label}` });
+      terminal.show();
+    });
+
+    // ── Submodule commands ─────────────────────────────────────────────────
+
+    register('intelliGit.submodule.refresh', async () => {
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.init', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      await this.git.initSubmodule(item.submodule.path);
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.initAll', async () => {
+      await this.git.initAllSubmodules();
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.update', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+
+      if (item.submodule.isDirty) {
+        const confirmed = await confirmDangerousAction({
+          title: 'Update dirty submodule',
+          detail: `${item.submodule.path} has uncommitted changes.`,
+          acceptLabel: 'Update anyway'
+        });
+        if (!confirmed) { return; }
+      }
+
+      await this.git.updateSubmodule(item.submodule.path);
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.updateAll', async () => {
+      const submodules = this.state.submodules;
+      const dirtyCount = submodules.filter((s) => s.isDirty).length;
+      if (dirtyCount > 0) {
+        const confirmed = await confirmDangerousAction({
+          title: 'Update all submodules',
+          detail: `${dirtyCount} submodule(s) have uncommitted changes.`,
+          acceptLabel: 'Update all'
+        });
+        if (!confirmed) { return; }
+      }
+
+      void vscode.window.showInformationMessage(`Updating ${submodules.length} submodule(s)…`);
+      await this.git.updateAllSubmodules();
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.updateRecursive', async () => {
+      const submodules = this.state.submodules;
+      void vscode.window.showInformationMessage(`Recursively updating ${submodules.length} submodule(s)…`);
+      await this.git.updateAllSubmodules(true);
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.sync', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      await this.git.syncSubmodule(item.submodule.path);
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.syncAll', async () => {
+      await this.git.syncSubmodule(undefined, true);
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.open', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      const fullPath = `${this.git.gitRoot}/${item.submodule.path}`;
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(fullPath), { forceReuseWindow: true });
+    });
+
+    register('intelliGit.submodule.openInNewWindow', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      const fullPath = `${this.git.gitRoot}/${item.submodule.path}`;
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(fullPath), { forceNewWindow: true });
+    });
+
+    register('intelliGit.submodule.checkoutRecorded', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      await this.git.checkoutRecordedSubmoduleCommit(item.submodule.path);
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.pullTrackedBranch', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      await this.git.pullSubmoduleTrackedBranch(item.submodule.path);
+      await this.state.refreshSubmodules();
+    });
+
+    register('intelliGit.submodule.diffPointer', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      const diff = await this.git.getSubmodulePointerDiff(item.submodule.path);
+      if (!diff.trim()) {
+        void vscode.window.showInformationMessage('No pointer diff for this submodule.');
+        return;
+      }
+      const doc = await vscode.workspace.openTextDocument({ content: diff, language: 'diff' });
+      await vscode.window.showTextDocument(doc);
+    });
+
+    register('intelliGit.submodule.stagePointerChange', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      await this.git.stageSubmodulePointer(item.submodule.path);
+      await this.state.refreshAll();
+    });
+
+    register('intelliGit.submodule.deinit', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+
+      if (item.submodule.isDirty) {
+        const confirmed = await confirmDangerousAction({
+          title: 'Deinit dirty submodule',
+          detail: `${item.submodule.path} has uncommitted changes that will be lost.`,
+          acceptLabel: 'Deinit'
+        });
+        if (!confirmed) { return; }
+      } else {
+        const confirmed = await confirmDangerousAction({
+          title: 'Deinit submodule',
+          detail: `This will remove ${item.submodule.path} from the working tree.`,
+          acceptLabel: 'Deinit'
+        });
+        if (!confirmed) { return; }
+      }
+
+      await this.git.deinitSubmodule(item.submodule.path, item.submodule.isDirty);
+      await this.state.refreshSubmodules();
+    });
   }
 
   private async openQuickActions(): Promise<void> {
@@ -1170,7 +1525,13 @@ export class CommandController {
       { label: 'Stage file', run: async () => vscode.commands.executeCommand('intelliGit.stage.file') },
       { label: 'Unstage file', run: async () => vscode.commands.executeCommand('intelliGit.unstage.file') },
       { label: 'Amend last commit', run: async () => vscode.commands.executeCommand('intelliGit.commit.amend') },
-      { label: 'Open file blame', run: async () => vscode.commands.executeCommand('intelliGit.fileBlame.open') }
+      { label: 'Open file blame', run: async () => vscode.commands.executeCommand('intelliGit.fileBlame.open') },
+      { label: 'Worktree: Add from branch', run: async () => vscode.commands.executeCommand('intelliGit.worktree.addFromBranch') },
+      { label: 'Worktree: Add new branch', run: async () => vscode.commands.executeCommand('intelliGit.worktree.addNewBranch') },
+      { label: 'Worktree: Prune stale (preview)', run: async () => vscode.commands.executeCommand('intelliGit.worktree.prunePreview') },
+      { label: 'Submodule: Init all', run: async () => vscode.commands.executeCommand('intelliGit.submodule.initAll') },
+      { label: 'Submodule: Update all', run: async () => vscode.commands.executeCommand('intelliGit.submodule.updateAll') },
+      { label: 'Submodule: Sync all', run: async () => vscode.commands.executeCommand('intelliGit.submodule.syncAll') }
     ];
 
     const picked = await vscode.window.showQuickPick(

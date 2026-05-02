@@ -1,5 +1,7 @@
 import * as assert from 'assert';
 import { describe, it } from 'node:test';
+import { parseWorktreeListPorcelain, parseWorktreePruneDryRun } from '../services/gitService';
+import { parseSubmoduleConfig, parseSubmoduleStatus } from '../services/submoduleService';
 
 describe('Git parsing utilities', () => {
   it('parses branch track output', () => {
@@ -45,5 +47,134 @@ describe('Git parsing utilities', () => {
       insertions: 2,
       deletions: 3
     });
+  });
+});
+
+describe('Worktree parser', () => {
+  it('parses two normal worktrees', () => {
+    const raw = `worktree /home/user/project
+HEAD abc1234
+branch refs/heads/main
+
+worktree /home/user/project/.worktrees/feature
+HEAD def5678
+branch refs/heads/feature/foo
+
+`;
+    const entries = parseWorktreeListPorcelain(raw);
+    assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[0].worktreePath, '/home/user/project');
+    assert.strictEqual(entries[0].branch, 'main');
+    assert.strictEqual(entries[0].headSha, 'abc1234');
+    assert.strictEqual(entries[0].isLocked, false);
+    assert.strictEqual(entries[1].branch, 'feature/foo');
+  });
+
+  it('parses a locked worktree with reason', () => {
+    const raw = `worktree /home/user/project
+HEAD abc1234
+branch refs/heads/main
+
+worktree /tmp/my-wt
+HEAD deadbeef
+branch refs/heads/experiment
+locked long-running experiment
+
+`;
+    const entries = parseWorktreeListPorcelain(raw);
+    assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[1].isLocked, true);
+    assert.strictEqual(entries[1].lockReason, 'long-running experiment');
+  });
+
+  it('parses a prunable worktree', () => {
+    const raw = `worktree /home/user/project
+HEAD abc1234
+branch refs/heads/main
+
+worktree /tmp/stale-wt
+HEAD cafebabe
+prunable gitdir file points to non-existent location
+
+`;
+    const entries = parseWorktreeListPorcelain(raw);
+    assert.strictEqual(entries[1].isPrunable, true);
+  });
+
+  it('parses a detached HEAD worktree', () => {
+    const raw = `worktree /home/user/project
+HEAD abc1234
+branch refs/heads/main
+
+worktree /tmp/detached-wt
+HEAD abcdef12
+detached
+
+`;
+    const entries = parseWorktreeListPorcelain(raw);
+    assert.strictEqual(entries[1].isDetached, true);
+    assert.strictEqual(entries[1].branch, undefined);
+  });
+
+  it('parses prune dry-run output', () => {
+    const raw = `Removing worktrees/stale-wt: gitdir file points to non-existent location
+Removing worktrees/old-feature: gitdir file points to non-existent location
+`;
+    const entries = parseWorktreePruneDryRun(raw);
+    assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[0].worktreePath, 'stale-wt');
+  });
+});
+
+describe('Submodule parser', () => {
+  it('parses submodule config from .gitmodules', () => {
+    const raw = `submodule.vendor/lib.path vendor/lib
+submodule.vendor/lib.url https://github.com/example/lib.git
+submodule.vendor/lib.branch main
+submodule.tools/util.path tools/util
+submodule.tools/util.url https://github.com/example/util.git
+`;
+    const entries = parseSubmoduleConfig(raw);
+    assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[0].name, 'vendor/lib');
+    assert.strictEqual(entries[0].path, 'vendor/lib');
+    assert.strictEqual(entries[0].url, 'https://github.com/example/lib.git');
+    assert.strictEqual(entries[0].branch, 'main');
+    assert.strictEqual(entries[1].branch, undefined);
+  });
+
+  it('parses submodule status output - normal', () => {
+    const raw = ` abc12345 vendor/lib (v1.2.0)
+`;
+    const entries = parseSubmoduleStatus(raw);
+    assert.strictEqual(entries.length, 1);
+    assert.strictEqual(entries[0].path, 'vendor/lib');
+    assert.strictEqual(entries[0].sha, 'abc12345');
+    assert.strictEqual(entries[0].isUninitialized, false);
+    assert.strictEqual(entries[0].isDirty, false);
+  });
+
+  it('parses submodule status - uninitialized', () => {
+    const raw = `-abc12345 vendor/lib
+`;
+    const entries = parseSubmoduleStatus(raw);
+    assert.strictEqual(entries[0].isUninitialized, true);
+  });
+
+  it('parses submodule status - dirty (pointer changed)', () => {
+    const raw = `+deadbeef tools/util (heads/main)
+`;
+    const entries = parseSubmoduleStatus(raw);
+    assert.strictEqual(entries[0].isDirty, true);
+    assert.strictEqual(entries[0].isPointerMismatch, true);
+  });
+
+  it('parses recursive submodule status with nested path', () => {
+    const raw = ` abc12345 vendor/lib (v1.2.0)
+ def67890 vendor/lib/nested/sub (v0.1)
+`;
+    const entries = parseSubmoduleStatus(raw);
+    assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[1].isNested, true);
   });
 });

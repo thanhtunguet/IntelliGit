@@ -54,6 +54,18 @@
           "name": "Git Graph",
           "visibility": "visible",
           "icon": "media/intelligit.svg"
+        },
+        {
+          "id": "intelliGit.worktrees",
+          "name": "Worktrees",
+          "visibility": "visible",
+          "icon": "media/intelligit.svg"
+        },
+        {
+          "id": "intelliGit.submodules",
+          "name": "Submodules",
+          "visibility": "visible",
+          "icon": "media/intelligit.svg"
         }
       ],
       "scm": [
@@ -337,6 +349,128 @@
       {
         "command": "intelliGit.commit.cherryPickSelectedChanges",
         "title": "Cherry-pick Selected Changes"
+      },
+      {
+        "command": "intelliGit.worktree.refresh",
+        "title": "Refresh Worktrees",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "intelliGit.worktree.open",
+        "title": "Open Worktree in This Window"
+      },
+      {
+        "command": "intelliGit.worktree.openInNewWindow",
+        "title": "Open Worktree in New Window",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "intelliGit.worktree.addFromBranch",
+        "title": "Add Worktree from Existing Branch",
+        "icon": "$(add)"
+      },
+      {
+        "command": "intelliGit.worktree.addNewBranch",
+        "title": "Add Worktree with New Branch"
+      },
+      {
+        "command": "intelliGit.worktree.addDetached",
+        "title": "Add Detached Worktree"
+      },
+      {
+        "command": "intelliGit.worktree.remove",
+        "title": "Remove Worktree"
+      },
+      {
+        "command": "intelliGit.worktree.removeForce",
+        "title": "Force Remove Worktree"
+      },
+      {
+        "command": "intelliGit.worktree.lock",
+        "title": "Lock Worktree"
+      },
+      {
+        "command": "intelliGit.worktree.unlock",
+        "title": "Unlock Worktree"
+      },
+      {
+        "command": "intelliGit.worktree.prunePreview",
+        "title": "Preview Prunable Worktrees"
+      },
+      {
+        "command": "intelliGit.worktree.prune",
+        "title": "Prune Stale Worktrees"
+      },
+      {
+        "command": "intelliGit.worktree.revealInFinder",
+        "title": "Reveal in Finder / Explorer"
+      },
+      {
+        "command": "intelliGit.worktree.openTerminal",
+        "title": "Open Terminal Here"
+      },
+      {
+        "command": "intelliGit.submodule.refresh",
+        "title": "Refresh Submodules",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "intelliGit.submodule.init",
+        "title": "Init Submodule"
+      },
+      {
+        "command": "intelliGit.submodule.initAll",
+        "title": "Init All Submodules",
+        "icon": "$(add)"
+      },
+      {
+        "command": "intelliGit.submodule.update",
+        "title": "Update Submodule"
+      },
+      {
+        "command": "intelliGit.submodule.updateAll",
+        "title": "Update All Submodules"
+      },
+      {
+        "command": "intelliGit.submodule.updateRecursive",
+        "title": "Update All Submodules (Recursive)"
+      },
+      {
+        "command": "intelliGit.submodule.sync",
+        "title": "Sync Submodule URL"
+      },
+      {
+        "command": "intelliGit.submodule.syncAll",
+        "title": "Sync All Submodule URLs"
+      },
+      {
+        "command": "intelliGit.submodule.open",
+        "title": "Open Submodule in This Window"
+      },
+      {
+        "command": "intelliGit.submodule.openInNewWindow",
+        "title": "Open Submodule in New Window",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "intelliGit.submodule.checkoutRecorded",
+        "title": "Checkout Recorded Commit"
+      },
+      {
+        "command": "intelliGit.submodule.pullTrackedBranch",
+        "title": "Pull Tracked Branch"
+      },
+      {
+        "command": "intelliGit.submodule.diffPointer",
+        "title": "Show Pointer Diff"
+      },
+      {
+        "command": "intelliGit.submodule.stagePointerChange",
+        "title": "Stage Pointer Change"
+      },
+      {
+        "command": "intelliGit.submodule.deinit",
+        "title": "Deinit Submodule"
       }
     ],
     "keybindings": [
@@ -386,12 +520,12 @@
       "view/title": [
         {
           "command": "intelliGit.refresh",
-          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph || view == intelliGit.worktrees || view == intelliGit.submodules",
           "group": "navigation"
         },
         {
           "command": "intelliGit.quickActions",
-          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph || view == intelliGit.worktrees || view == intelliGit.submodules",
           "group": "navigation@1"
         },
         {
@@ -408,6 +542,36 @@
           "command": "intelliGit.graph.clearFilter",
           "when": "view == intelliGit.graph && intelliGit.graphFilterActive",
           "group": "navigation@3"
+        },
+        {
+          "command": "intelliGit.worktree.refresh",
+          "when": "view == intelliGit.worktrees",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.worktree.addFromBranch",
+          "when": "view == intelliGit.worktrees",
+          "group": "navigation@1"
+        },
+        {
+          "command": "intelliGit.worktree.prune",
+          "when": "view == intelliGit.worktrees",
+          "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.submodule.refresh",
+          "when": "view == intelliGit.submodules",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.submodule.initAll",
+          "when": "view == intelliGit.submodules",
+          "group": "navigation@1"
+        },
+        {
+          "command": "intelliGit.submodule.updateAll",
+          "when": "view == intelliGit.submodules && intelliGit.hasSubmodules",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -545,6 +709,106 @@
           "command": "intelliGit.commit.cherryPickSelectedChanges",
           "when": "view == intelliGit.graph && viewItem == graphCommitFile",
           "group": "navigation@6"
+        },
+        {
+          "command": "intelliGit.worktree.openInNewWindow",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/",
+          "group": "inline"
+        },
+        {
+          "command": "intelliGit.worktree.open",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "intelliGit.worktree.openInNewWindow",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.worktree.revealInFinder",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/",
+          "group": "navigation@3"
+        },
+        {
+          "command": "intelliGit.worktree.openTerminal",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/",
+          "group": "navigation@4"
+        },
+        {
+          "command": "intelliGit.worktree.lock",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/ && !(viewItem =~ /worktreeLocked/) && !(viewItem =~ /worktreeCurrent/)",
+          "group": "manage@1"
+        },
+        {
+          "command": "intelliGit.worktree.unlock",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeLocked/",
+          "group": "manage@2"
+        },
+        {
+          "command": "intelliGit.worktree.remove",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/ && !(viewItem =~ /worktreeCurrent/) && !(viewItem =~ /worktreeLocked/)",
+          "group": "danger@1"
+        },
+        {
+          "command": "intelliGit.worktree.removeForce",
+          "when": "view == intelliGit.worktrees && viewItem =~ /worktreeEntry/ && !(viewItem =~ /worktreeCurrent/)",
+          "group": "danger@2"
+        },
+        {
+          "command": "intelliGit.submodule.openInNewWindow",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "inline"
+        },
+        {
+          "command": "intelliGit.submodule.open",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "intelliGit.submodule.openInNewWindow",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.submodule.init",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleUninitialized/",
+          "group": "manage@1"
+        },
+        {
+          "command": "intelliGit.submodule.update",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "manage@2"
+        },
+        {
+          "command": "intelliGit.submodule.sync",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "manage@3"
+        },
+        {
+          "command": "intelliGit.submodule.checkoutRecorded",
+          "when": "view == intelliGit.submodules && viewItem =~ /submodulePointerChanged/",
+          "group": "pointer@1"
+        },
+        {
+          "command": "intelliGit.submodule.pullTrackedBranch",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "pointer@2"
+        },
+        {
+          "command": "intelliGit.submodule.diffPointer",
+          "when": "view == intelliGit.submodules && viewItem =~ /submodulePointerChanged/",
+          "group": "pointer@3"
+        },
+        {
+          "command": "intelliGit.submodule.stagePointerChange",
+          "when": "view == intelliGit.submodules && viewItem =~ /submodulePointerChanged/",
+          "group": "pointer@4"
+        },
+        {
+          "command": "intelliGit.submodule.deinit",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "danger@1"
         }
       ],
       "explorer/context": [

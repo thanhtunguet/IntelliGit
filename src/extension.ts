@@ -9,6 +9,8 @@ import { CommitFileDecorationProvider } from './providers/commitFileDecorationPr
 import { CommitFilesTreeProvider } from './providers/commitFilesTreeProvider';
 import { GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
+import { WorktreeTreeProvider } from './providers/worktreeTreeProvider';
+import { SubmoduleTreeProvider } from './providers/submoduleTreeProvider';
 import { GitService } from './services/gitService';
 import { getRepositoryContext } from './services/repositoryContext';
 import { StateStore } from './state/stateStore';
@@ -62,7 +64,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.window.createTreeView('intelliGit.branches', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.stashes', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider }),
-      vscode.window.createTreeView('intelliGit.commitView', { treeDataProvider: emptyProvider })
+      vscode.window.createTreeView('intelliGit.commitView', { treeDataProvider: emptyProvider }),
+      vscode.window.createTreeView('intelliGit.worktrees', { treeDataProvider: emptyProvider }),
+      vscode.window.createTreeView('intelliGit.submodules', { treeDataProvider: emptyProvider })
     );
     return;
   }
@@ -73,6 +77,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const branchProvider = new BranchTreeProvider(stateStore);
   const stashProvider = new StashTreeProvider(stateStore);
   const graphProvider = new GraphTreeProvider(stateStore, gitService);
+  const worktreeProvider = new WorktreeTreeProvider(stateStore);
+  const submoduleProvider = new SubmoduleTreeProvider(stateStore);
 
   const branchView = vscode.window.createTreeView('intelliGit.branches', {
     treeDataProvider: branchProvider,
@@ -86,6 +92,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     treeDataProvider: graphProvider,
     showCollapseAll: true,
     canSelectMany: true
+  });
+  const worktreeView = vscode.window.createTreeView('intelliGit.worktrees', {
+    treeDataProvider: worktreeProvider,
+    showCollapseAll: true
+  });
+  const submoduleView = vscode.window.createTreeView('intelliGit.submodules', {
+    treeDataProvider: submoduleProvider,
+    showCollapseAll: true
   });
   const commitFilesProvider = new CommitFilesTreeProvider(gitService);
   const commitDecorationProvider = new CommitFileDecorationProvider(commitFilesProvider);
@@ -109,6 +123,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     graphView,
     commitView,
     commitDecorationProvider,
+    worktreeView,
+    submoduleView,
     vscode.window.registerFileDecorationProvider(commitDecorationProvider)
   );
   const commandController = new CommandController(
