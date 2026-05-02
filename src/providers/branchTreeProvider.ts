@@ -285,13 +285,33 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
     }
 
     const groupItems = Array.from(groups.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a, leftTags], [b, rightTags]) => {
+        const leftLatest = latestTagEpoch(leftTags);
+        const rightLatest = latestTagEpoch(rightTags);
+        if (leftLatest !== rightLatest) {
+          return rightLatest - leftLatest;
+        }
+        return a.localeCompare(b);
+      })
       .map(([fullPath, tagSet]) => new TagPathNode(idPrefix, fullPath.split('/').at(-1) ?? fullPath, fullPath, tagSet));
 
-    leaves.sort((a, b) => a.tag.name.localeCompare(b.tag.name));
+    leaves.sort((a, b) => compareTagsByTimeDesc(a.tag, b.tag));
 
     return [...groupItems, ...leaves];
   }
+}
+
+function compareTagsByTimeDesc(a: TagRef, b: TagRef): number {
+  const left = a.lastCommitEpoch ?? 0;
+  const right = b.lastCommitEpoch ?? 0;
+  if (left !== right) {
+    return right - left;
+  }
+  return a.name.localeCompare(b.name);
+}
+
+function latestTagEpoch(tags: TagRef[]): number {
+  return Math.max(0, ...tags.map((tag) => tag.lastCommitEpoch ?? 0));
 }
 
 function describeBranch(branch: BranchRef): string {

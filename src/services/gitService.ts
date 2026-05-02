@@ -178,7 +178,14 @@ export class GitService {
           lastCommitEpoch: Number.isNaN(commitEpoch) ? undefined : commitEpoch
         };
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => {
+        const left = a.lastCommitEpoch ?? 0;
+        const right = b.lastCommitEpoch ?? 0;
+        if (left !== right) {
+          return right - left;
+        }
+        return a.name.localeCompare(b.name);
+      });
   }
 
   async createBranch(name: string, base?: string): Promise<void> {
