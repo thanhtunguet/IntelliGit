@@ -1253,12 +1253,10 @@ export class CommandController {
       }
 
       if (worktree.isDirty) {
-        const confirmed = await confirmDangerousAction({
-          title: 'Remove dirty worktree',
-          detail: `${worktree.worktreePath} has uncommitted changes. They will be lost.`,
-          acceptLabel: 'Remove anyway'
-        });
-        if (!confirmed) { return; }
+        void vscode.window.showWarningMessage(
+          `${worktree.worktreePath} has uncommitted changes. Use Force Remove if you want to discard them.`
+        );
+        return;
       } else {
         const confirmed = await confirmDangerousAction({
           title: 'Remove worktree',
@@ -1416,6 +1414,16 @@ export class CommandController {
 
     register('intelliGit.submodule.updateRecursive', async () => {
       const submodules = this.state.submodules;
+      const dirtyCount = submodules.filter((s) => s.isDirty).length;
+      const confirmed = await confirmDangerousAction({
+        title: 'Update all submodules recursively',
+        detail: dirtyCount > 0
+          ? `${submodules.length} submodule(s) will be updated recursively. ${dirtyCount} have uncommitted changes.`
+          : `${submodules.length} submodule(s) will be updated recursively.`,
+        acceptLabel: 'Update Recursive'
+      });
+      if (!confirmed) { return; }
+
       void vscode.window.showInformationMessage(`Recursively updating ${submodules.length} submodule(s)…`);
       await this.git.updateAllSubmodules(true);
       await this.state.refreshSubmodules();

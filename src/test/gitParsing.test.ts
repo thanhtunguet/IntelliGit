@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { describe, it } from 'node:test';
-import { parseWorktreeListPorcelain, parseWorktreePruneDryRun } from '../services/gitService';
-import { parseSubmoduleConfig, parseSubmoduleStatus } from '../services/submoduleService';
+import { parseSubmoduleConfig, parseSubmoduleStatus } from '../services/submoduleParsing';
+import { parseWorktreeListPorcelain, parseWorktreePruneDryRun } from '../services/worktreeParsing';
 
 describe('Git parsing utilities', () => {
   it('parses branch track output', () => {
@@ -175,6 +175,8 @@ submodule.tools/util.url https://github.com/example/util.git
 `;
     const entries = parseSubmoduleStatus(raw);
     assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[1].sha, 'def67890');
+    assert.strictEqual(entries[1].path, 'vendor/lib/nested/sub');
     assert.strictEqual(entries[1].isNested, true);
   });
 });

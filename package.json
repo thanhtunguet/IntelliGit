@@ -29,7 +29,7 @@
     "compile": "tsc -p .",
     "watch": "tsc -watch -p .",
     "lint": "eslint src --ext .ts",
-    "test": "npm run compile"
+    "test": "npm run compile && node --test dist/test/*.test.js"
   },
   "contributes": {
     "viewsContainers": {

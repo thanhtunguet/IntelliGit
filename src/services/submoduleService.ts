@@ -6,6 +6,7 @@ import {
   SubmoduleStatusEntry,
   GitCommandResult
 } from '../types';
+import { parseSubmoduleConfig, parseSubmoduleStatus } from './submoduleParsing';
 
 export class SubmoduleService {
   constructor(
@@ -20,23 +21,29 @@ export class SubmoduleService {
       this.getSubmoduleConfig()
     ]);
 
-    return statusEntries.map((s) => {
+    return Promise.all(statusEntries.map(async (s) => {
       const cfg = configEntries.find((c) => c.path === s.path);
+      const recordedSha = await this.getRecordedSubmoduleSha(s.path);
+      const localStatus = s.isUninitialized
+        ? { isDirty: false, ahead: 0, behind: 0 }
+        : await this.getSubmoduleWorktreeStatus(s.path);
+      const currentSha = s.isUninitialized ? undefined : s.sha;
+      const isPointerMismatch = s.isPointerMismatch || Boolean(currentSha && recordedSha && currentSha !== recordedSha);
       return {
         path: s.path,
         name: cfg?.name ?? s.path,
         url: cfg?.url ?? '',
         branch: cfg?.branch,
-        currentSha: s.sha,
-        recordedSha: undefined,
+        currentSha,
+        recordedSha: recordedSha ?? (s.isUninitialized ? s.sha : undefined),
         isInitialized: !s.isUninitialized,
-        isDirty: s.isDirty,
-        isPointerMismatch: s.isPointerMismatch,
-        ahead: 0,
-        behind: 0,
+        isDirty: s.isDirty || localStatus.isDirty,
+        isPointerMismatch,
+        ahead: localStatus.ahead,
+        behind: localStatus.behind,
         submodules: []
       } as SubmoduleEntry;
-    });
+    }));
   }
 
   async getSubmoduleConfig(): Promise<SubmoduleConfigEntry[]> {
@@ -71,8 +78,9 @@ export class SubmoduleService {
   }
 
   async updateSubmodule(submodulePath: string, recursive = false): Promise<void> {
-    const args = ['submodule', 'update', '--init', '--', submodulePath];
+    const args = ['submodule', 'update', '--init'];
     if (recursive) { args.push('--recursive'); }
+    args.push('--', submodulePath);
     await this.runGit(args);
   }
 
@@ -136,60 +144,44 @@ export class SubmoduleService {
       });
     });
   }
-}
 
-interface MutableSubmoduleConfigEntry {
-  name: string;
-  path?: string;
-  url?: string;
-  branch?: string;
-}
-
-export function parseSubmoduleConfig(raw: string): SubmoduleConfigEntry[] {
-  const map = new Map<string, MutableSubmoduleConfigEntry>();
-
-  for (const line of raw.split('\n').map((l) => l.trim()).filter(Boolean)) {
-    const match = line.match(/^submodule\.(.+?)\.(path|url|branch)\s+(.+)$/);
-    if (!match) { continue; }
-    const [, name, key, value] = match;
-    if (!map.has(name)) { map.set(name, { name }); }
-    const entry = map.get(name)!;
-    if (key === 'path') { entry.path = value; }
-    else if (key === 'url') { entry.url = value; }
-    else if (key === 'branch') { entry.branch = value; }
+  private async getSubmoduleWorktreeStatus(
+    submodulePath: string
+  ): Promise<{ isDirty: boolean; ahead: number; behind: number }> {
+    try {
+      const result = await this.runGitAt(submodulePath, ['status', '--porcelain=v1', '--branch']);
+      const lines = result.stdout.split(/\r?\n/);
+      const branchLine = lines[0] ?? '';
+      const isDirty = lines.slice(1).some((line) => line.trim().length > 0);
+      const { ahead, behind } = parseTrack(branchLine);
+      return { isDirty, ahead, behind };
+    } catch {
+      return { isDirty: false, ahead: 0, behind: 0 };
+    }
   }
 
-  return Array.from(map.values())
-    .filter((e): e is SubmoduleConfigEntry => Boolean(e.path && e.url))
-    .map((e) => ({
-      name: e.name,
-      path: e.path!,
-      url: e.url!,
-      branch: e.branch
-    }));
+  private async getRecordedSubmoduleSha(submodulePath: string): Promise<string | undefined> {
+    try {
+      const result = await this.runGit(['ls-files', '-s', '--', submodulePath]);
+      const line = result.stdout.split(/\r?\n/).find((value) => value.trim().length > 0);
+      if (!line) { return undefined; }
+      const match = line.match(/^\d+\s+([0-9a-fA-F]{7,40})\s+\d+\t/);
+      return match?.[1];
+    } catch {
+      return undefined;
+    }
+  }
 }
 
-export function parseSubmoduleStatus(raw: string): SubmoduleStatusEntry[] {
-  return raw
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const prefix = line[0];
-      const rest = line.slice(1).trim();
-      const spaceIdx = rest.indexOf(' ');
-      const sha = spaceIdx === -1 ? rest : rest.slice(0, spaceIdx);
-      const pathAndDesc = spaceIdx === -1 ? '' : rest.slice(spaceIdx + 1);
-      const parenIdx = pathAndDesc.indexOf('(');
-      const subPath = (parenIdx === -1 ? pathAndDesc : pathAndDesc.slice(0, parenIdx)).trim();
+function parseTrack(value: string): { ahead: number; behind: number } {
+  if (!value) {
+    return { ahead: 0, behind: 0 };
+  }
 
-      return {
-        path: subPath,
-        sha,
-        isUninitialized: prefix === '-',
-        isDirty: prefix === '+',
-        isPointerMismatch: prefix === '+',
-        isNested: subPath.includes('/')
-      } as SubmoduleStatusEntry;
-    });
+  const aheadMatch = value.match(/ahead (\d+)/);
+  const behindMatch = value.match(/behind (\d+)/);
+  return {
+    ahead: Number(aheadMatch?.[1] ?? 0),
+    behind: Number(behindMatch?.[1] ?? 0)
+  };
 }
