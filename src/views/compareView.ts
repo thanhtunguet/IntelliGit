@@ -188,6 +188,7 @@ function renderCompareHtml(result: CompareResult): string {
       flex-direction: column;
       gap: 4px;
       min-width: 0;
+      position: relative;
     }
     .filter-label {
       font-size: 11px;
@@ -220,6 +221,37 @@ function renderCompareHtml(result: CompareResult): string {
     }
     .filter-clear:hover {
       background: color-mix(in srgb, var(--accent), transparent 90%);
+    }
+    .author-autocomplete {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 2px);
+      z-index: 20;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--bg), white 3%);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+    }
+    .author-autocomplete.visible {
+      display: block;
+    }
+    .author-option {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      text-align: left;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+    .author-option:hover,
+    .author-option.active {
+      background: color-mix(in srgb, var(--accent), transparent 85%);
     }
     .card {
       border: 1px solid var(--border);
@@ -354,7 +386,8 @@ function renderCompareHtml(result: CompareResult): string {
   <section class="filters">
     <label class="filter-field">
       <span class="filter-label">Author</span>
-      <input id="filter-author" class="filter-input" type="text" list="author-options" placeholder="Type author name" />
+      <input id="filter-author" class="filter-input" type="text" autocomplete="off" placeholder="Type author name" />
+      <div id="author-autocomplete" class="author-autocomplete" role="listbox" aria-label="Author suggestions"></div>
     </label>
     <label class="filter-field">
       <span class="filter-label">Từ ngày</span>
@@ -368,7 +401,6 @@ function renderCompareHtml(result: CompareResult): string {
       <button id="filter-clear" class="filter-clear" type="button">Clear filters</button>
     </div>
   </section>
-  <datalist id="author-options">${authors.map((author) => `<option value="${escapeHtml(author)}"></option>`).join('')}</datalist>
   <div class="grid">
     <section class="card">
       <div class="section-banner" data-side="left" data-total="${result.commitsOnlyLeft.length}" data-ref="${escapeHtml(result.leftRef)}">Only in ${escapeHtml(result.leftRef)} (${result.commitsOnlyLeft.length})</div>
@@ -422,12 +454,16 @@ function renderCompareHtml(result: CompareResult): string {
 
   <script>
     const vscode = acquireVsCodeApi();
+    const allAuthors = ${toInlineJson(authors)};
     const menu = document.getElementById('commit-context-menu');
     const authorInput = document.getElementById('filter-author');
+    const authorAutocomplete = document.getElementById('author-autocomplete');
     const sinceInput = document.getElementById('filter-since');
     const untilInput = document.getElementById('filter-until');
     const clearButton = document.getElementById('filter-clear');
     let selectedCommit = null;
+    let authorSuggestions = [];
+    let authorActiveIndex = -1;
 
     document.addEventListener('click', (event) => {
       if (menu.classList.contains('visible')) {
@@ -513,6 +549,89 @@ function renderCompareHtml(result: CompareResult): string {
     window.addEventListener('blur', closeMenu);
     window.addEventListener('scroll', closeMenu, true);
 
+    const scoreAuthorMatch = (authorLower, keywordLower) => {
+      if (!keywordLower) {
+        return 3;
+      }
+      const startIndex = authorLower.indexOf(keywordLower);
+      if (startIndex < 0) {
+        return Number.POSITIVE_INFINITY;
+      }
+      if (startIndex === 0) {
+        return 0;
+      }
+      if (authorLower[startIndex - 1] === ' ') {
+        return 1;
+      }
+      return 2;
+    };
+
+    const getSortedAuthorSuggestions = (keyword) => {
+      const keywordLower = keyword.trim().toLowerCase();
+      return allAuthors
+        .map((author) => {
+          const lower = author.toLowerCase();
+          return {
+            author,
+            score: scoreAuthorMatch(lower, keywordLower),
+            index: lower.indexOf(keywordLower)
+          };
+        })
+        .filter((item) => Number.isFinite(item.score))
+        .sort((a, b) => {
+          if (a.score !== b.score) { return a.score - b.score; }
+          if (a.index !== b.index) { return a.index - b.index; }
+          return a.author.localeCompare(b.author);
+        })
+        .map((item) => item.author);
+    };
+
+    const closeAuthorDropdown = () => {
+      authorSuggestions = [];
+      authorActiveIndex = -1;
+      if (!authorAutocomplete) { return; }
+      authorAutocomplete.classList.remove('visible');
+      authorAutocomplete.innerHTML = '';
+    };
+
+    const focusActiveAuthorOption = () => {
+      if (!authorAutocomplete || authorActiveIndex < 0) { return; }
+      const active = authorAutocomplete.querySelector('.author-option.active');
+      if (active && active.scrollIntoView) {
+        active.scrollIntoView({ block: 'nearest' });
+      }
+    };
+
+    const renderAuthorDropdown = () => {
+      if (!authorAutocomplete || authorSuggestions.length === 0) {
+        closeAuthorDropdown();
+        return;
+      }
+      authorAutocomplete.innerHTML = authorSuggestions
+        .map((author, index) => {
+          const activeClass = index === authorActiveIndex ? ' active' : '';
+          return '<button type="button" class="author-option' + activeClass + '" data-index="' + index + '" role="option" aria-selected="' + (index === authorActiveIndex ? 'true' : 'false') + '">' + author.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;') + '</button>';
+        })
+        .join('');
+      authorAutocomplete.classList.add('visible');
+      focusActiveAuthorOption();
+    };
+
+    const openAuthorDropdown = (keyword) => {
+      authorSuggestions = getSortedAuthorSuggestions(keyword);
+      authorActiveIndex = authorSuggestions.length > 0 ? 0 : -1;
+      renderAuthorDropdown();
+    };
+
+    const selectAuthorSuggestion = (index) => {
+      if (!authorInput) { return; }
+      const value = authorSuggestions[index];
+      if (!value) { return; }
+      authorInput.value = value;
+      closeAuthorDropdown();
+      applyFilters();
+    };
+
     const parseSince = (value) => {
       if (!value) { return undefined; }
       const timestamp = new Date(value + 'T00:00:00').getTime();
@@ -577,7 +696,45 @@ function renderCompareHtml(result: CompareResult): string {
     };
 
     if (authorInput) {
-      authorInput.addEventListener('input', applyFilters);
+      authorInput.addEventListener('input', () => {
+        applyFilters();
+        openAuthorDropdown(authorInput.value);
+      });
+      authorInput.addEventListener('focus', () => {
+        openAuthorDropdown(authorInput.value);
+      });
+      authorInput.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+          if (authorSuggestions.length === 0) {
+            openAuthorDropdown(authorInput.value);
+          }
+          if (authorSuggestions.length > 0) {
+            event.preventDefault();
+            authorActiveIndex = (authorActiveIndex + 1 + authorSuggestions.length) % authorSuggestions.length;
+            renderAuthorDropdown();
+          }
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          if (authorSuggestions.length === 0) {
+            openAuthorDropdown(authorInput.value);
+          }
+          if (authorSuggestions.length > 0) {
+            event.preventDefault();
+            authorActiveIndex = (authorActiveIndex - 1 + authorSuggestions.length) % authorSuggestions.length;
+            renderAuthorDropdown();
+          }
+          return;
+        }
+        if (event.key === 'Enter' && authorActiveIndex >= 0 && authorSuggestions.length > 0) {
+          event.preventDefault();
+          selectAuthorSuggestion(authorActiveIndex);
+          return;
+        }
+        if (event.key === 'Escape') {
+          closeAuthorDropdown();
+        }
+      });
     }
     if (sinceInput) {
       sinceInput.addEventListener('change', applyFilters);
@@ -590,9 +747,33 @@ function renderCompareHtml(result: CompareResult): string {
         if (authorInput) { authorInput.value = ''; }
         if (sinceInput) { sinceInput.value = ''; }
         if (untilInput) { untilInput.value = ''; }
+        closeAuthorDropdown();
         applyFilters();
       });
     }
+    if (authorAutocomplete) {
+      authorAutocomplete.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+      });
+      authorAutocomplete.addEventListener('click', (event) => {
+        const option = event.target && event.target.closest ? event.target.closest('.author-option') : null;
+        if (!option) { return; }
+        const index = Number(option.getAttribute('data-index') || '-1');
+        if (index >= 0) {
+          selectAuthorSuggestion(index);
+        }
+      });
+    }
+    document.addEventListener('click', (event) => {
+      if (!authorAutocomplete || !authorInput) {
+        return;
+      }
+      const target = event.target;
+      if (target === authorInput || authorAutocomplete.contains(target)) {
+        return;
+      }
+      closeAuthorDropdown();
+    });
   </script>
 </body>
 </html>`;
@@ -628,6 +809,10 @@ function collectDistinctAuthors(left: GraphCommit[], right: GraphCommit[]): stri
     }
   }
   return Array.from(unique.values()).sort((a, b) => a.localeCompare(b));
+}
+
+function toInlineJson(value: unknown): string {
+  return JSON.stringify(value).replaceAll('</', '<\\/');
 }
 
 function renderGraphGlyph(graph?: string): string {
