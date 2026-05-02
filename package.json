@@ -48,24 +48,28 @@
         {
           "id": "intelliGit.branches",
           "name": "Branches",
+          "contextualTitle": "Browse and manage local and remote branches",
           "visibility": "visible",
           "icon": "media/icon-branches.svg"
         },
         {
           "id": "intelliGit.graph",
           "name": "Git Graph",
+          "contextualTitle": "Visual commit history and branch graph",
           "visibility": "visible",
           "icon": "media/icon-graph.svg"
         },
         {
           "id": "intelliGit.worktrees",
           "name": "Worktrees",
+          "contextualTitle": "Manage git worktrees for parallel development",
           "visibility": "visible",
           "icon": "media/icon-worktrees.svg"
         },
         {
           "id": "intelliGit.submodules",
           "name": "Submodules",
+          "contextualTitle": "Manage nested git submodule repositories",
           "visibility": "visible",
           "icon": "media/icon-submodules.svg"
         }
@@ -73,7 +77,8 @@
       "scm": [
         {
           "id": "intelliGit.stashes",
-          "name": "IntelliGit Stashes",
+          "name": "Stashes",
+          "contextualTitle": "Save and restore work-in-progress changes",
           "visibility": "visible",
           "icon": "media/icon-stashes.svg"
         }
@@ -81,7 +86,8 @@
       "panel": [
         {
           "id": "intelliGit.commitView",
-          "name": "Commit View",
+          "name": "Commit Details",
+          "contextualTitle": "Inspect changed files and diffs in a selected commit",
           "when": "intelliGit.commitViewVisible",
           "icon": "media/icon-commit-view.svg"
         }
