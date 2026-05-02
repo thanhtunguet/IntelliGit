@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { StateStore } from '../state/stateStore';
-import { BranchRef } from '../types';
+import { BranchRef, TagRef } from '../types';
 
 class BranchSectionNode extends vscode.TreeItem {
   constructor(
@@ -12,6 +12,15 @@ class BranchSectionNode extends vscode.TreeItem {
     super(label, vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'branchSection';
     this.id = `branchSection:${kind}`;
+    this.description = `${count}`;
+  }
+}
+
+class TagSectionNode extends vscode.TreeItem {
+  constructor(public readonly tags: TagRef[], count: number) {
+    super('Tags', vscode.TreeItemCollapsibleState.Expanded);
+    this.contextValue = 'tagSection';
+    this.id = 'branchSection:tags';
     this.description = `${count}`;
   }
 }
@@ -41,6 +50,19 @@ class BranchPathNode extends vscode.TreeItem {
   }
 }
 
+class TagPathNode extends vscode.TreeItem {
+  constructor(
+    public readonly idPrefix: string,
+    public readonly segment: string,
+    public readonly fullPath: string,
+    public readonly tags: TagRef[]
+  ) {
+    super(segment, vscode.TreeItemCollapsibleState.Collapsed);
+    this.contextValue = 'tagPathGroup';
+    this.id = `tagPath:${idPrefix}:${fullPath}`;
+  }
+}
+
 export class BranchTreeItem extends vscode.TreeItem {
   constructor(
     public readonly branch: BranchRef,
@@ -64,6 +86,21 @@ export class BranchTreeItem extends vscode.TreeItem {
   }
 }
 
+class TagTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly tag: TagRef,
+    label: string,
+    idScope: string
+  ) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.contextValue = 'tagRef';
+    this.id = `tag:${idScope}:${tag.fullName}`;
+    this.description = 'tag';
+    this.tooltip = `${tag.name}\n${tag.fullName}`;
+    this.iconPath = new vscode.ThemeIcon('tag');
+  }
+}
+
 export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.emitter.event;
@@ -82,9 +119,10 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
 
   async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
     const branches = this.state.branches;
+    const tags = this.state.tags;
 
     if (!element) {
-      return this.buildTopLevelSections(branches);
+      return this.buildTopLevelSections(branches, tags);
     }
 
     if (element instanceof BranchSectionNode) {
@@ -107,10 +145,18 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
       return this.buildPathNodes(element.branches, element.fullPath, element.pathMode, element.idPrefix);
     }
 
+    if (element instanceof TagSectionNode) {
+      return this.buildTagPathNodes(element.tags, '', 'tags');
+    }
+
+    if (element instanceof TagPathNode) {
+      return this.buildTagPathNodes(element.tags, element.fullPath, element.idPrefix);
+    }
+
     return [];
   }
 
-  private buildTopLevelSections(branches: BranchRef[]): vscode.TreeItem[] {
+  private buildTopLevelSections(branches: BranchRef[], tags: TagRef[]): vscode.TreeItem[] {
     const localBranches = branches.filter((branch) => branch.type === 'local');
     const remoteBranches = branches.filter((branch) => branch.type === 'remote');
     const recentBranches = this.getRecentBranches(branches);
@@ -124,6 +170,9 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
     }
     if (remoteBranches.length > 0) {
       sections.push(new BranchSectionNode('remote', remoteBranches, remoteBranches.length));
+    }
+    if (tags.length > 0) {
+      sections.push(new TagSectionNode(tags, tags.length));
     }
     return sections;
   }
@@ -209,6 +258,39 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
         return a.name.localeCompare(b.name);
       })
       .slice(0, maxRecent);
+  }
+
+  private buildTagPathNodes(tags: TagRef[], basePath: string, idPrefix: string): vscode.TreeItem[] {
+    const groups = new Map<string, TagRef[]>();
+    const leaves: TagTreeItem[] = [];
+
+    for (const tag of tags) {
+      const relativeName = basePath ? tag.name.slice(basePath.length + 1) : tag.name;
+      if (!relativeName) {
+        leaves.push(new TagTreeItem(tag, tag.name.split('/').at(-1) ?? tag.name, idPrefix));
+        continue;
+      }
+
+      const parts = relativeName.split('/');
+      if (parts.length === 1) {
+        leaves.push(new TagTreeItem(tag, relativeName, idPrefix));
+        continue;
+      }
+
+      const segment = parts[0];
+      const childPath = basePath ? `${basePath}/${segment}` : segment;
+      const list = groups.get(childPath) ?? [];
+      list.push(tag);
+      groups.set(childPath, list);
+    }
+
+    const groupItems = Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([fullPath, tagSet]) => new TagPathNode(idPrefix, fullPath.split('/').at(-1) ?? fullPath, fullPath, tagSet));
+
+    leaves.sort((a, b) => a.tag.name.localeCompare(b.tag.name));
+
+    return [...groupItems, ...leaves];
   }
 }
 

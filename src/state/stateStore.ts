@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import { GitService } from '../services/gitService';
-import { BranchRef, ComparePair, CompareResult, GitOperationState, GraphCommit, MergeConflictFile, StashEntry, WorkingTreeChange } from '../types';
+import { BranchRef, ComparePair, CompareResult, GitOperationState, GraphCommit, MergeConflictFile, StashEntry, TagRef, WorkingTreeChange } from '../types';
 
 export class StateStore {
   private _branches: BranchRef[] = [];
+  private _tags: TagRef[] = [];
   private _stashes: StashEntry[] = [];
   private _changes: WorkingTreeChange[] = [];
   private _graph: GraphCommit[] = [];
@@ -35,6 +36,10 @@ export class StateStore {
 
   get branches(): BranchRef[] {
     return this._branches;
+  }
+
+  get tags(): TagRef[] {
+    return this._tags;
   }
 
   get stashes(): StashEntry[] {
@@ -86,6 +91,7 @@ export class StateStore {
   async refreshAll(): Promise<void> {
     if (!(await this.git.isRepo())) {
       this._branches = [];
+      this._tags = [];
       this._stashes = [];
       this._changes = [];
       this._graph = [];
@@ -98,8 +104,9 @@ export class StateStore {
 
     const maxGraphCommits = this.configuration.get<number>('maxGraphCommits', 200);
 
-    const [branches, stashes, changes, graph, operationState, conflicts] = await Promise.all([
+    const [branches, tags, stashes, changes, graph, operationState, conflicts] = await Promise.all([
       this.git.getBranches(),
+      this.git.getTags(),
       this.git.getStashes(),
       this.git.getChangedFiles(),
       this.git.getGraph(maxGraphCommits, this._graphFilters),
@@ -108,6 +115,7 @@ export class StateStore {
     ]);
 
     this._branches = branches;
+    this._tags = tags;
     this._stashes = stashes;
     this._changes = changes;
     this._graph = graph;
@@ -119,7 +127,9 @@ export class StateStore {
   }
 
   async refreshBranches(): Promise<void> {
-    this._branches = await this.git.getBranches();
+    const [branches, tags] = await Promise.all([this.git.getBranches(), this.git.getTags()]);
+    this._branches = branches;
+    this._tags = tags;
     this.emitter.fire();
   }
 

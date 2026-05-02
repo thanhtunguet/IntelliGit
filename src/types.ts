@@ -15,6 +15,12 @@ export interface BranchRef {
   readonly lastCommitEpoch?: number;
 }
 
+export interface TagRef {
+  readonly name: string;
+  readonly fullName: string;
+  readonly lastCommitEpoch?: number;
+}
+
 export interface StashEntry {
   readonly index: number;
   readonly ref: string;

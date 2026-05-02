@@ -15,6 +15,7 @@ import {
   MergeConflictFile,
   RepositoryContext,
   StashEntry,
+  TagRef,
   WorkingTreeChange
 } from '../types';
 
@@ -146,6 +147,30 @@ export class GitService {
         }
         return a.name.localeCompare(b.name);
       });
+  }
+
+  async getTags(): Promise<TagRef[]> {
+    const format = ['%(refname:short)', '%(refname)', '%(creatordate:unix)'].join(FIELD_SEPARATOR);
+    const result = await this.runGit([
+      'for-each-ref',
+      `--format=${format}${RECORD_SEPARATOR}`,
+      'refs/tags'
+    ]);
+
+    return result.stdout
+      .split(RECORD_SEPARATOR)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [name, fullName, commitEpochRaw] = line.split(FIELD_SEPARATOR);
+        const commitEpoch = Number.parseInt((commitEpochRaw ?? '').trim(), 10);
+        return {
+          name,
+          fullName,
+          lastCommitEpoch: Number.isNaN(commitEpoch) ? undefined : commitEpoch
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async createBranch(name: string, base?: string): Promise<void> {
