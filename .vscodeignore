@@ -7,13 +7,6 @@
 .vscode/**
 .vscode-test/**
 node_modules/**
-!node_modules/
-!node_modules/handlebars/**
-!node_modules/minimist/**
-!node_modules/neo-async/**
-!node_modules/source-map/**
-!node_modules/uglify-js/**
-!node_modules/wordwrap/**
 src/**
 **/*.map
 *.md
@@ -21,3 +14,9 @@ src/**
 .eslintrc.cjs
 .eslint.config.cjs
 *.vsix
+.superpowers/
+docs/
+scripts/
+eslint.config.*
+.gitignore
+

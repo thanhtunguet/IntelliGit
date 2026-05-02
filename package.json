@@ -28,9 +28,12 @@
     "onCommand:intelliGit.quickActions"
   ],
   "scripts": {
-    "compile": "tsc -p . && node scripts/copy-templates.js",
+    "clean": "node scripts/clean-dist.js",
+    "compile": "npm run clean && tsc -p . && node scripts/copy-templates.js",
+    "check-types": "tsc -p . --noEmit",
+    "bundle": "npm run clean && esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node18 --external:vscode --outfile=dist/extension.js && node scripts/copy-templates.js",
     "copy-templates": "node scripts/copy-templates.js",
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run check-types && npm run bundle",
     "watch": "tsc -watch -p .",
     "lint": "eslint src --ext .ts",
     "test": "npm run compile && node --test dist/test/*.test.js"
@@ -48,25 +51,11 @@
     "views": {
       "intelliGit": [
         {
-          "id": "intelliGit.graph",
-          "name": "Git Graph",
-          "contextualTitle": "Visual commit history and branch graph",
+          "id": "intelliGit.branches",
+          "name": "Branches",
+          "contextualTitle": "Browse and manage local and remote branches",
           "visibility": "visible",
-          "icon": "media/icon-graph.svg"
-        },
-        {
-          "id": "intelliGit.worktrees",
-          "name": "Worktrees",
-          "contextualTitle": "Manage git worktrees for parallel development",
-          "visibility": "visible",
-          "icon": "media/icon-worktrees.svg"
-        },
-        {
-          "id": "intelliGit.submodules",
-          "name": "Submodules",
-          "contextualTitle": "Manage nested git submodule repositories",
-          "visibility": "visible",
-          "icon": "media/icon-submodules.svg"
+          "icon": "media/icon-branches.svg"
         },
         {
           "id": "intelliGit.commitView",
@@ -74,6 +63,13 @@
           "contextualTitle": "Inspect changed files and diffs in a selected commit",
           "when": "intelliGit.commitViewVisible",
           "icon": "media/icon-commit-view.svg"
+        },
+        {
+          "id": "intelliGit.graph",
+          "name": "Git Graph",
+          "contextualTitle": "Visual commit history and branch graph",
+          "visibility": "visible",
+          "icon": "media/icon-graph.svg"
         }
       ],
       "scm": [
@@ -83,16 +79,24 @@
           "contextualTitle": "Save and restore work-in-progress changes",
           "visibility": "visible",
           "icon": "media/icon-stashes.svg"
-        },
-        {
-          "id": "intelliGit.branches",
-          "name": "Branches",
-          "contextualTitle": "Browse and manage local and remote branches",
-          "visibility": "visible",
-          "icon": "media/icon-branches.svg"
         }
       ],
-      "panel": []
+      "panel": [
+        {
+          "id": "intelliGit.submodules",
+          "name": "Submodules",
+          "contextualTitle": "Manage nested git submodule repositories",
+          "visibility": "visible",
+          "icon": "media/icon-submodules.svg"
+        },
+        {
+          "id": "intelliGit.worktrees",
+          "name": "Worktrees",
+          "contextualTitle": "Manage git worktrees for parallel development",
+          "visibility": "visible",
+          "icon": "media/icon-worktrees.svg"
+        }
+      ]
     },
     "commands": [
       {
@@ -982,10 +986,9 @@
     "@typescript-eslint/parser": "^8.58.2",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.9.1",
+    "esbuild": "^0.28.0",
     "eslint": "^10.2.1",
+    "handlebars": "^4.7.9",
     "typescript": "^6.0.3"
-  },
-  "dependencies": {
-    "handlebars": "^4.7.9"
   }
 }
