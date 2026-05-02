@@ -57,6 +57,7 @@ function registerPartialsInDirectory(directory: string, prefix: string): void {
 function getTemplateRoots(): string[] {
   return [
     path.join(__dirname, 'templates'),
+    path.join(__dirname, '..', 'templates'),
     path.join(__dirname, '..', '..', 'src', 'views', 'templates')
   ];
 }

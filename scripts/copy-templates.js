@@ -3,7 +3,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const sourceDir = path.join(root, 'src', 'views', 'templates');
-const targetDir = path.join(root, 'dist', 'views', 'templates');
+const targetDir = path.join(root, 'dist', 'templates');
 
 fs.rmSync(targetDir, { recursive: true, force: true });
 copyTemplates(sourceDir, targetDir);
