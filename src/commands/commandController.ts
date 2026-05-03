@@ -170,6 +170,10 @@ export class CommandController {
             await this.git.checkoutBranch(name);
             await this.state.refreshAll();
           },
+          checkoutTag: async (name: string) => {
+            await vscode.commands.executeCommand('intelliGit.tag.checkoutNewBranch', name);
+            await this.state.refreshAll();
+          },
           openActions: async (name: string) => {
             await vscode.commands.executeCommand('intelliGit.branch.actionHub', name);
           },
@@ -178,6 +182,7 @@ export class CommandController {
           }
         },
         () => this.state.branches,
+        () => this.state.tags,
         (listener) => this.state.onDidChange(listener)
       );
     });

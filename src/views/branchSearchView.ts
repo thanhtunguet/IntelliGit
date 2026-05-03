@@ -5,18 +5,22 @@ import {
   type BranchContextMenuCommand
 } from './branchContextMenu';
 import { renderTemplate } from './templateRenderer';
-import { BranchRef } from '../types';
+import { BranchRef, TagRef } from '../types';
 
 export interface BranchSearchHandlers {
   checkout(name: string): Promise<void>;
+  checkoutTag(name: string): Promise<void>;
   openActions(name: string): Promise<void>;
   runCommand(command: BranchContextMenuCommand, name: string): Promise<void>;
 }
 
 type IncomingMessage =
   | { type: 'checkout'; name: string }
+  | { type: 'checkoutTag'; name: string }
   | { type: 'actions'; name: string }
+  | { type: 'tagActions'; name: string }
   | { type: 'branchCommand'; command: string; name: string }
+  | { type: 'tagCommand'; command: string; name: string }
   | { type: 'close' };
 
 export class BranchSearchView {
@@ -28,11 +32,12 @@ export class BranchSearchView {
   private constructor(
     private readonly handlers: BranchSearchHandlers,
     private readonly getBranches: () => BranchRef[],
+    private readonly getTags: () => TagRef[],
     onStateChange: (listener: () => void) => vscode.Disposable
   ) {
     this.panel = vscode.window.createWebviewPanel(
       'intelliGit.branchSearch',
-      'IntelliGit: Search Branches',
+      'IntelliGit: Search Branches & Tags',
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
@@ -54,29 +59,30 @@ export class BranchSearchView {
           );
         }
       }),
-      onStateChange(() => this.postBranches()),
+      onStateChange(() => this.postData()),
       this.panel.onDidDispose(() => this.dispose())
     );
 
-    this.postBranches();
+    this.postData();
   }
 
   static open(
     handlers: BranchSearchHandlers,
     getBranches: () => BranchRef[],
+    getTags: () => TagRef[],
     onStateChange: (listener: () => void) => vscode.Disposable
   ): BranchSearchView {
     if (BranchSearchView.current) {
       BranchSearchView.current.panel.reveal(vscode.ViewColumn.Active, false);
       return BranchSearchView.current;
     }
-    const view = new BranchSearchView(handlers, getBranches, onStateChange);
+    const view = new BranchSearchView(handlers, getBranches, getTags, onStateChange);
     BranchSearchView.current = view;
     return view;
   }
 
-  private postBranches(): void {
-    const payload = this.getBranches().map((branch) => ({
+  private postData(): void {
+    const branchPayload = this.getBranches().map((branch) => ({
       name: branch.name,
       shortName: branch.shortName,
       fullName: branch.fullName,
@@ -88,7 +94,13 @@ export class BranchSearchView {
       current: branch.current,
       lastCommitEpoch: branch.lastCommitEpoch
     }));
-    void this.panel.webview.postMessage({ type: 'branches', branches: payload });
+    const tagPayload = this.getTags().map((tag) => ({
+      name: tag.name,
+      fullName: tag.fullName,
+      sha: tag.sha,
+      lastCommitEpoch: tag.lastCommitEpoch
+    }));
+    void this.panel.webview.postMessage({ type: 'data', branches: branchPayload, tags: tagPayload });
   }
 
   private async handleMessage(message: IncomingMessage): Promise<void> {
@@ -100,10 +112,22 @@ export class BranchSearchView {
         await this.handlers.checkout(message.name);
         this.panel.dispose();
         return;
+      case 'checkoutTag':
+        await this.handlers.checkoutTag(message.name);
+        this.panel.dispose();
+        return;
       case 'actions':
         await this.handlers.openActions(message.name);
         return;
+      case 'tagActions':
+        await this.handlers.openActions(message.name);
+        return;
       case 'branchCommand':
+        if (isBranchContextMenuCommand(message.command)) {
+          await this.handlers.runCommand(message.command, message.name);
+        }
+        return;
+      case 'tagCommand':
         if (isBranchContextMenuCommand(message.command)) {
           await this.handlers.runCommand(message.command, message.name);
         }

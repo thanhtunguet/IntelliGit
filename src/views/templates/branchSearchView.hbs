@@ -1,4 +1,4 @@
-{{> partials/documentStart title="Search Branches"}}
+{{> partials/documentStart title="Search Branches & Tags"}}
     {{> partials/styles/theme}}
     :root {
       --row-hover: color-mix(in srgb, var(--accent), transparent 85%);
@@ -138,11 +138,11 @@
 </head>
 <body>
   <div class="header">
-    <h1>Search Branches</h1>
-    <p class="hint">Type to filter. Enter to checkout the top match. ↑/↓ to move. Esc to close.</p>
+    <h1>Search Branches &amp; Tags</h1>
+    <p class="hint">Type to filter branches and tags. Enter to checkout the top match. ↑/↓ to move. Esc to close.</p>
     <div class="search-row">
-      <input id="search" type="text" placeholder="Filter by branch name…" autofocus spellcheck="false" />
-      <span id="count" class="count">0 branches</span>
+      <input id="search" type="text" placeholder="Filter branches or tags…" autofocus spellcheck="false" />
+      <span id="count" class="count">0 results</span>
     </div>
   </div>
   <div id="list" class="list"></div>
@@ -156,14 +156,17 @@
     const menu = document.getElementById('branch-context-menu');
 
     let branches = [];
+    let tags = [];
     let filtered = [];
     let focusedIndex = 0;
-    let selectedBranchName = null;
+    let selectedName = null;
+    let selectedKind = null;
 
     window.addEventListener('message', (event) => {
       const msg = event.data;
-      if (msg && msg.type === 'branches') {
+      if (msg && msg.type === 'data') {
         branches = msg.branches || [];
+        tags = msg.tags || [];
         applyFilter();
       }
     });
@@ -190,7 +193,7 @@
       );
     }
 
-    function describe(branch) {
+    function describeBranch(branch) {
       const parts = [];
       if (branch.current) parts.push('current');
       if (branch.type === 'remote') parts.push('remote');
@@ -199,14 +202,22 @@
       return parts.join(' · ');
     }
 
+    function describeTag(tag) {
+      return tag.sha ? tag.sha.slice(0, 7) : '';
+    }
+
     function applyFilter() {
       const query = searchInput.value.trim().toLowerCase();
-      filtered = branches.filter((b) => {
+      const branchMatches = branches.filter((b) => {
         if (!query) return true;
-        return b.name.toLowerCase().includes(query) || b.shortName.toLowerCase().includes(query);
+        return b.name.toLowerCase().includes(query) || (b.shortName && b.shortName.toLowerCase().includes(query));
+      });
+      const tagMatches = tags.filter((t) => {
+        if (!query) return true;
+        return t.name.toLowerCase().includes(query);
       });
 
-      filtered.sort((a, b) => {
+      branchMatches.sort((a, b) => {
         if (a.current && !b.current) return -1;
         if (b.current && !a.current) return 1;
         const aEpoch = a.lastCommitEpoch || 0;
@@ -215,58 +226,66 @@
         return a.name.localeCompare(b.name);
       });
 
+      tagMatches.sort((a, b) => {
+        const aEpoch = a.lastCommitEpoch || 0;
+        const bEpoch = b.lastCommitEpoch || 0;
+        if (aEpoch !== bEpoch) return bEpoch - aEpoch;
+        return a.name.localeCompare(b.name);
+      });
+
+      filtered = { branches: branchMatches, tags: tagMatches };
       focusedIndex = 0;
       render(query);
     }
 
     function render(query) {
-      countEl.textContent = filtered.length + (filtered.length === 1 ? ' branch' : ' branches');
+      const branchCount = filtered.branches.length;
+      const tagCount = filtered.tags.length;
+      const total = branchCount + tagCount;
+      countEl.textContent = total + (total === 1 ? ' result' : ' results');
 
-      if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="empty">No branches match your search.</div>';
+      if (total === 0) {
+        listEl.innerHTML = '<div class="empty">No branches or tags match your search.</div>';
         return;
       }
 
-      const groups = { recent: [], local: [], remote: [] };
-      const recentThreshold = 10;
-      const sortedByEpoch = [...branches]
-        .filter((b) => (b.lastCommitEpoch || 0) > 0)
-        .sort((a, b) => (b.lastCommitEpoch || 0) - (a.lastCommitEpoch || 0))
-        .slice(0, recentThreshold)
-        .map((b) => b.fullName);
-      const recentSet = new Set(sortedByEpoch);
+      const localBranches = filtered.branches.filter((b) => b.type === 'local');
+      const remoteBranches = filtered.branches.filter((b) => b.type === 'remote');
 
-      for (const branch of filtered) {
-        if (recentSet.has(branch.fullName) && !query) {
-          groups.recent.push(branch);
-        }
-        if (branch.type === 'local') {
-          groups.local.push(branch);
-        } else {
-          groups.remote.push(branch);
-        }
+      const remoteGroups = new Map();
+      for (const branch of remoteBranches) {
+        const remote = branch.remoteName || 'unknown';
+        if (!remoteGroups.has(remote)) remoteGroups.set(remote, []);
+        remoteGroups.get(remote).push(branch);
       }
 
-      const sections = [
-        !query && groups.recent.length > 0 ? { label: 'Recent', items: groups.recent } : null,
-        { label: 'Local', items: groups.local },
-        { label: 'Remote', items: groups.remote }
-      ].filter((s) => s && s.items.length > 0);
+      const sections = [];
+      if (localBranches.length > 0) {
+        sections.push({ label: 'Local', kind: 'branch', items: localBranches });
+      }
+      for (const [remoteName, items] of Array.from(remoteGroups.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+        sections.push({ label: 'Remote: ' + remoteName, kind: 'branch', items });
+      }
+      if (filtered.tags.length > 0) {
+        sections.push({ label: 'Tags', kind: 'tag', items: filtered.tags });
+      }
 
       let globalIndex = 0;
       const html = sections
         .map((section) => {
           const rows = section.items
-            .map((branch) => {
+            .map((item) => {
               const idx = globalIndex++;
-              const icon = branch.current ? '✔' : branch.type === 'remote' ? '☁' : '⎇';
-              const meta = describe(branch);
+              const isTag = section.kind === 'tag';
+              const icon = isTag ? '🏷' : item.current ? '✔' : item.type === 'remote' ? '☁' : '⎇';
+              const meta = isTag ? describeTag(item) : describeBranch(item);
               const classes = ['row'];
-              if (branch.current) classes.push('current');
+              if (!isTag && item.current) classes.push('current');
               if (idx === focusedIndex) classes.push('focused');
-              return '<div class="' + classes.join(' ') + '" data-index="' + idx + '" data-name="' + escapeHtml(branch.name) + '">' +
+              const kind = isTag ? 'tag' : 'branch';
+              return '<div class="' + classes.join(' ') + '" data-index="' + idx + '" data-name="' + escapeHtml(item.name) + '" data-kind="' + kind + '">' +
                 '<span class="row-icon">' + icon + '</span>' +
-                '<span class="row-name">' + highlight(branch.name, query) + '</span>' +
+                '<span class="row-name">' + highlight(item.name, query) + '</span>' +
                 (meta ? '<span class="row-meta">' + escapeHtml(meta) + '</span>' : '') +
                 '<span class="row-actions">' +
                   '<button data-action="actions" title="More actions">⋯</button>' +
@@ -296,11 +315,13 @@
 
     function closeMenu() {
       menu.classList.remove('visible');
-      selectedBranchName = null;
+      selectedName = null;
+      selectedKind = null;
     }
 
-    function openMenu(x, y, name) {
-      selectedBranchName = name;
+    function openMenu(x, y, name, kind) {
+      selectedName = name;
+      selectedKind = kind;
       menu.style.left = '0px';
       menu.style.top = '0px';
       menu.classList.add('visible');
@@ -339,7 +360,13 @@
         const rows = rowsFlat();
         const row = rows[focusedIndex];
         if (row) {
-          vscode.postMessage({ type: 'checkout', name: row.dataset.name });
+          const kind = row.dataset.kind;
+          const name = row.dataset.name;
+          if (kind === 'tag') {
+            vscode.postMessage({ type: 'checkoutTag', name });
+          } else {
+            vscode.postMessage({ type: 'checkout', name });
+          }
         }
       }
     });
@@ -359,6 +386,7 @@
 
       event.preventDefault();
       const name = row.dataset.name;
+      const kind = row.dataset.kind;
       if (!name) {
         return;
       }
@@ -367,12 +395,12 @@
       if (Number.isFinite(idx)) {
         focusRow(idx);
       }
-      openMenu(event.clientX, event.clientY, name);
+      openMenu(event.clientX, event.clientY, name, kind);
     });
 
     menu.addEventListener('click', (event) => {
       const target = event.target && event.target.closest ? event.target.closest('.menu-item[data-command]') : null;
-      if (!target || !selectedBranchName) {
+      if (!target || !selectedName) {
         return;
       }
 
@@ -381,7 +409,8 @@
         return;
       }
 
-      vscode.postMessage({ type: 'branchCommand', command, name: selectedBranchName });
+      const msgType = selectedKind === 'tag' ? 'tagCommand' : 'branchCommand';
+      vscode.postMessage({ type: msgType, command, name: selectedName });
       closeMenu();
     });
 
@@ -391,13 +420,19 @@
       const row = target.closest('.row');
       if (!row) return;
       const name = row.dataset.name;
+      const kind = row.dataset.kind;
       if (!name) return;
       if (actionBtn && actionBtn.dataset.action === 'actions') {
         e.stopPropagation();
-        vscode.postMessage({ type: 'actions', name });
+        const msgType = kind === 'tag' ? 'tagActions' : 'actions';
+        vscode.postMessage({ type: msgType, name });
         return;
       }
-      vscode.postMessage({ type: 'checkout', name });
+      if (kind === 'tag') {
+        vscode.postMessage({ type: 'checkoutTag', name });
+      } else {
+        vscode.postMessage({ type: 'checkout', name });
+      }
     });
   </script>
 {{> partials/documentEnd}}
