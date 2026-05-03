@@ -45,6 +45,7 @@ All notable changes to this project are documented in this file.
   - partial staging (`git add -p`), stage file, unstage file
   - amend commit
   - file history and blame commands
+  - compare with revision from Explorer context menu (file/folder), including grouped revision picker and SHA-prefix lookup
 - Added guardrails:
   - destructive operation confirmations for risky Git commands
   - deterministic state refresh after mutating operations

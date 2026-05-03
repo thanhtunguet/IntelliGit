@@ -86,6 +86,15 @@ A dedicated sidebar view that appears when a commit is selected from Git Graph. 
 - Revert selected file changes back to the commit's parent
 - Cherry-pick selected file changes onto the current working tree
 
+### Compare with Revision (Explorer context menu)
+
+Right-click any file or folder in the Explorer and choose **Compare with Revision…**.
+
+- Picker groups refs as **Local branches**, **Remote branches**, and **Tags**
+- Type a commit SHA prefix (4–40 lowercase hex chars) to resolve and select a specific commit
+- File target: opens diff with **left = selected revision**, **right = working tree**
+- Folder target: populates **Commit Details** with changed files and opens the first file in preview diff mode
+
 ### Worktrees (Tree View — Repo Structure panel)
 
 Worktrees are grouped into: **Current**, **Other Worktrees**, **Locked**, **Prunable / Stale**.
@@ -213,6 +222,7 @@ Key command IDs (not exhaustive):
 - `intelliGit.worktree.*` — open, openInNewWindow, addFromBranch, addNewBranch, addDetached, remove, removeForce, lock, unlock, prunePreview, prune, revealInFinder, openTerminal
 - `intelliGit.submodule.*` — init, initAll, update, updateAll, updateRecursive, sync, syncAll, open, openInNewWindow, checkoutRecorded, pullTrackedBranch, diffPointer, stagePointerChange, deinit
 - `intelliGit.fileHistory.open`
+- `intelliGit.compareWithRevision` (Explorer context menu)
 - `intelliGit.fileBlame.open`
 
 ## Run Locally
