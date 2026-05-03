@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "IntelliGit Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows, inspired by IntelliJ Git integration.",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "publisher": "thanhtunguet",
   "icon": "media/intelligit.png",
   "main": "./dist/extension.js",
@@ -83,7 +83,7 @@
         {
           "id": "intelliGit.stashes",
           "name": "Stashes",
-          "contextualTitle": "Save and restore work-in-progress changes",
+          "contextualTitle": "Stashed changes",
           "visibility": "visible",
           "icon": "media/icon-stashes.svg"
         }
