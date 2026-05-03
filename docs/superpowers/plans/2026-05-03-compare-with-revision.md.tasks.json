@@ -1,0 +1,61 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-03-compare-with-revision.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Add parseNameStatusZ to gitParsing.ts",
+      "status": "pending",
+      "description": "**Goal:** Centralize parsing of `git diff --name-status -z` output as a tested pure function.\n\n**Files:**\n- Modify: `src/services/gitParsing.ts`\n- Test: `src/test/workingTreeDiff.test.ts`\n\n**Verify:** `npm run compile && node --test dist/test/workingTreeDiff.test.js`\n\n```json:metadata\n{\"files\":[\"src/services/gitParsing.ts\",\"src/test/workingTreeDiff.test.ts\"],\"verifyCommand\":\"npm run compile && node --test dist/test/workingTreeDiff.test.js\",\"acceptanceCriteria\":[\"parses NUL-separated name-status output\",\"handles renames/copies returning new path\",\"empty input returns empty array\"]}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: Add GitService.getFilesChangedBetweenWorkingTreeAndRef and resolveRevisionToCommit",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** Service methods for folder-mode list assembly and picker SHA resolution.\n\n**Files:** `src/types.ts`, `src/services/gitService.ts`, `src/test/workingTreeDiff.test.ts`\n\n**Verify:** `npm run compile && node --test dist/test/workingTreeDiff.test.js`\n\n```json:metadata\n{\"files\":[\"src/types.ts\",\"src/services/gitService.ts\",\"src/test/workingTreeDiff.test.ts\"],\"verifyCommand\":\"npm run compile && node --test dist/test/workingTreeDiff.test.js\",\"acceptanceCriteria\":[\"working-tree diff lists tracked + untracked\",\"scopePath restricts results\",\"resolveRevisionToCommit returns undefined on failure\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: Implement revision picker (src/views/revisionPicker.ts)",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** Sectioned QuickPick (local/remote/tag) plus dynamic SHA-prefix lookup.\n\n**Files:** `src/views/revisionPicker.ts`, `src/test/revisionPicker.test.ts`\n\n**Verify:** `npm run compile && node --test dist/test/revisionPicker.test.js`\n\n```json:metadata\n{\"files\":[\"src/views/revisionPicker.ts\",\"src/test/revisionPicker.test.ts\"],\"verifyCommand\":\"npm run compile && node --test dist/test/revisionPicker.test.js\",\"acceptanceCriteria\":[\"isLikelyShaPrefix matches hex 4-40\",\"buildRevisionPickerItems sectioned correctly\",\"pickRevisionToCompare resolves synthetic commit\"]}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Add 'workingTreeCompare' mode to CommitFilesTreeProvider",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** New tree-item class + ActiveTreeState variant + showWorkingTreeComparison method.\n\n**Files:** `src/providers/commitFilesTreeProvider.ts`\n\n**Verify:** `npm run check-types && npm run compile && npm run lint`\n\n```json:metadata\n{\"files\":[\"src/providers/commitFilesTreeProvider.ts\"],\"verifyCommand\":\"npm run check-types && npm run compile && npm run lint\",\"acceptanceCriteria\":[\"new tree item class with preview-diff command\",\"third ActiveTreeState variant\",\"getChildren routes new mode\",\"existing tests still pass\"]}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: Add EditorOrchestrator entry points",
+      "status": "pending",
+      "blockedBy": [3],
+      "description": "**Goal:** `openWorkingTreeFileDiff` (live file:// right-side, fallback for deleted), `openCompareWithRevisionForFile`, `openCompareWithRevisionForFolder`.\n\n**Files:** `src/editor/editorOrchestrator.ts`\n\n**Verify:** `npm run check-types && npm run compile && npm run lint`\n\n```json:metadata\n{\"files\":[\"src/editor/editorOrchestrator.ts\"],\"verifyCommand\":\"npm run check-types && npm run compile && npm run lint\",\"acceptanceCriteria\":[\"openWorkingTreeFileDiff handles deleted files\",\"folder mode populates view + opens first preview\",\"empty diff shows info message\"]}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: Register intelliGit.compareWithRevision and per-item file-diff command",
+      "status": "pending",
+      "blockedBy": [2, 3, 4],
+      "description": "**Goal:** Wire the Explorer command and the working-tree-compare file-click command.\n\n**Files:** `src/commands/commandController.ts`\n\n**Verify:** `npm run check-types && npm run compile && npm run lint`\n\n```json:metadata\n{\"files\":[\"src/commands/commandController.ts\"],\"verifyCommand\":\"npm run check-types && npm run compile && npm run lint\",\"acceptanceCriteria\":[\"new explorer command registered\",\"preview-diff click command registered\",\"error toast for non-repo target\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: Add manifest entries for the new command",
+      "status": "pending",
+      "blockedBy": [5],
+      "description": "**Goal:** Surface the command in `explorer/context` and hide internals from the palette.\n\n**Files:** `package.json`\n\n**Verify:** `npm run check-types && npm run bundle`\n\n```json:metadata\n{\"files\":[\"package.json\"],\"verifyCommand\":\"npm run check-types && npm run bundle\",\"acceptanceCriteria\":[\"explorer context entry added\",\"internal command hidden from palette\",\"manifest builds\"]}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: Documentation (README, CHANGELOG)",
+      "status": "pending",
+      "blockedBy": [6],
+      "description": "**Goal:** Document the feature for end users.\n\n**Files:** `README.md`, `CHANGELOG.md`\n\n**Verify:** Manual review.\n\n```json:metadata\n{\"files\":[\"README.md\",\"CHANGELOG.md\"],\"verifyCommand\":\"git diff README.md CHANGELOG.md\",\"acceptanceCriteria\":[\"README documents new action\",\"CHANGELOG entry added\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-03T00:00:00Z"
+}
