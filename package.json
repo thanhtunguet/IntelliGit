@@ -738,7 +738,7 @@
         {
           "command": "intelliGit.graph.openFileDiff",
           "when": "view == intelliGit.graph && viewItem == graphCommitFile",
-          "group": "inline"
+          "group": "navigation"
         },
         {
           "command": "intelliGit.graph.checkoutCommit",

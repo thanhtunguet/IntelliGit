@@ -50,7 +50,7 @@ export class GraphCommitFileTreeItem extends vscode.TreeItem {
     this.contextValue = 'graphCommitFile';
     this.id = `commitFile:${commit.sha}:${filePath}`;
     this.resourceUri = vscode.Uri.file(`${workspaceRoot}/${filePath}`);
-    this.tooltip = `${filePath}\n${commit.shortSha} ${commit.subject}`;
+    this.tooltip = `${filePath}\n${commit.shortSha} ${commit.subject}\nOpen Commit File Diff`;
     this.command = {
       title: 'Open Diff',
       command: 'intelliGit.graph.openFileDiff',

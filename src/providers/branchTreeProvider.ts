@@ -96,7 +96,6 @@ export class TagTreeItem extends vscode.TreeItem {
     super(label, vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'tagRef';
     this.id = `tag:${idScope}:${tag.fullName}`;
-    this.description = 'tag';
     this.tooltip = buildTagTooltip(tag);
     this.iconPath = new vscode.ThemeIcon('tag');
     this.command = {
