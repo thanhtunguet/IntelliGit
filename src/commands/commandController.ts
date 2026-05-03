@@ -44,6 +44,7 @@ export class CommandController {
     private readonly logger: Logger,
     private readonly commitFilesView: {
       getCommitActionContext(selectedItems: readonly CommitFileTreeItem[]): CommitActionContext | undefined;
+      showCommit(sha: string, subject: string): Promise<void>;
     }
   ) { }
 
@@ -829,6 +830,7 @@ export class CommandController {
             await this.state.clearGraphFilters();
             await vscode.commands.executeCommand('setContext', 'intelliGit.graphFilterActive', false);
           },
+          openCommitDetails: async (sha, subject) => this.commitFilesView.showCommit(sha, subject),
           getCommitFiles: async (sha) => this.git.getFilesInCommit(sha),
           openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath)
         },

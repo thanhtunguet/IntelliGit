@@ -299,7 +299,7 @@
 </head>
 <body>
   <h1>Filter Graph</h1>
-  <p class="hint">Inline filters with live commit preview. Enter applies, Esc closes.</p>
+  <p class="hint">Inline filters with live commit preview. Click a commit to open its changed files in Commit Details view.</p>
 
   <form id="form">
     <section class="filters-inline">
@@ -611,7 +611,8 @@
         vscode.postMessage({ type: 'commitAction', action: 'copyRevisionNumber', sha });
         return;
       }
-      toggleCommitFiles(sha);
+      const subject = row.getAttribute('data-subject') || '';
+      vscode.postMessage({ type: 'openCommitDetails', sha, subject });
     });
 
     document.addEventListener('contextmenu', (event) => {

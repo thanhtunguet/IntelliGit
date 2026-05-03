@@ -14,6 +14,7 @@ export interface GraphFilters {
 export interface GraphFilterHandlers {
   apply(filters: GraphFilters): Promise<void>;
   clear(): Promise<void>;
+  openCommitDetails(sha: string, subject: string): Promise<void>;
   getCommitFiles(sha: string): Promise<string[]>;
   openFileDiff(sha: string, filePath: string): Promise<void>;
 }
@@ -22,6 +23,7 @@ type IncomingMessage =
   | { type: 'apply'; filters: GraphFilters }
   | { type: 'clear' }
   | { type: 'close' }
+  | { type: 'openCommitDetails'; sha: string; subject: string }
   | { type: 'loadCommitFiles'; sha: string }
   | { type: 'openCommitFile'; sha: string; filePath: string }
   | CommitActionMessage;
@@ -117,6 +119,15 @@ export class GraphFilterView {
       case 'close':
         this.panel.dispose();
         return;
+      case 'openCommitDetails': {
+        const sha = message.sha.trim();
+        const subject = message.subject.trim();
+        if (!sha) {
+          return;
+        }
+        await this.handlers.openCommitDetails(sha, subject);
+        return;
+      }
       case 'loadCommitFiles': {
         const sha = message.sha.trim();
         if (!sha) {
