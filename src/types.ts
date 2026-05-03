@@ -164,6 +164,21 @@ export interface WorktreePruneEntry {
   readonly reason: string;
 }
 
+// ── Compare-with-revision types ───────────────────────────────────────────────
+
+export interface WorkingTreeFileChange {
+  readonly status: string;
+  readonly path: string;
+  readonly untracked: boolean;
+}
+
+export interface ResolvedCommitMeta {
+  readonly sha: string;
+  readonly subject: string;
+  readonly author: string;
+  readonly date: string;
+}
+
 // ── Submodule types ───────────────────────────────────────────────────────────
 
 export interface SubmoduleEntry {

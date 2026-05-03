@@ -16,9 +16,11 @@ import {
   MergeConflictFile,
   RefComparison,
   RepositoryContext,
+  ResolvedCommitMeta,
   StashEntry,
   TagRef,
   WorkingTreeChange,
+  WorkingTreeFileChange,
   WorktreeEntry,
   WorktreePruneEntry,
   WorktreeStatus,
@@ -28,7 +30,7 @@ import {
 } from '../types';
 import { SubmoduleService } from './submoduleService';
 import { parseWorktreeListPorcelain, parseWorktreePruneDryRun } from './worktreeParsing';
-import { parseRevListComparison, parseTrack } from './gitParsing';
+import { parseRevListComparison, parseTrack, parseNameStatusZ } from './gitParsing';
 
 const FIELD_SEPARATOR = '|~|';
 const RECORD_SEPARATOR = '|#|';
@@ -1062,6 +1064,76 @@ export class GitService {
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
+  }
+
+  /**
+   * Returns all files that differ between the working tree and the given ref.
+   * Includes tracked files (via `git diff --name-status -z <ref>`) plus
+   * untracked files (via `git ls-files --others --exclude-standard -z`).
+   * When `scopePath` is provided, results are restricted to that subtree.
+   * Results are sorted by path for stable output.
+   */
+  async getFilesChangedBetweenWorkingTreeAndRef(ref: string, scopePath?: string): Promise<WorkingTreeFileChange[]> {
+    const scopeArgs = scopePath ? ['--', scopePath] : [];
+
+    // Tracked changes
+    const trackedResult = await this.runGit([
+      'diff', '--name-status', '-z', ref, ...scopeArgs
+    ]);
+    const trackedEntries = parseNameStatusZ(trackedResult.stdout).map(
+      (entry): WorkingTreeFileChange => ({ status: entry.status, path: entry.path, untracked: false })
+    );
+
+    // Untracked files
+    const untrackedResult = await this.runGit([
+      'ls-files', '--others', '--exclude-standard', '-z', ...scopeArgs
+    ]);
+    const untrackedEntries: WorkingTreeFileChange[] = untrackedResult.stdout
+      .split('\0')
+      .filter((p) => p.length > 0)
+      .map((p): WorkingTreeFileChange => ({ status: 'A', path: p, untracked: true }));
+
+    // Merge: prefer tracked entry when path appears in both
+    const trackedPaths = new Set(trackedEntries.map((e) => e.path));
+    const merged = [
+      ...trackedEntries,
+      ...untrackedEntries.filter((e) => !trackedPaths.has(e.path))
+    ];
+
+    // Stable sort by path
+    merged.sort((a, b) => a.path.localeCompare(b.path));
+    return merged;
+  }
+
+  /**
+   * Resolves a revision expression (branch name, tag, short SHA, etc.) to
+   * a commit and returns its metadata. Returns `undefined` when the ref is
+   * invalid or git fails for any reason — this method never throws.
+   */
+  async resolveRevisionToCommit(input: string): Promise<ResolvedCommitMeta | undefined> {
+    try {
+      const verifyResult = await this.runGit(['rev-parse', '--verify', `${input}^{commit}`]);
+      const sha = verifyResult.stdout.trim();
+      if (!sha) {
+        return undefined;
+      }
+
+      // Fetch metadata in one log call using NUL separators
+      const logResult = await this.runGit([
+        'log', '-1', '--format=%H%x00%s%x00%an%x00%ad', '--date=iso-strict', sha
+      ]);
+      const parts = logResult.stdout.trim().split('\0');
+      if (parts.length < 4) {
+        return undefined;
+      }
+      const [resolvedSha, subject, author, date] = parts;
+      if (!resolvedSha || !subject || !author || !date) {
+        return undefined;
+      }
+      return { sha: resolvedSha, subject, author, date };
+    } catch {
+      return undefined;
+    }
   }
 
   async stageFile(path: string): Promise<void> {
