@@ -3,7 +3,12 @@ import { EditorOrchestrator } from '../editor/editorOrchestrator';
 import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
 import { BranchTreeItem, TagTreeItem } from '../providers/branchTreeProvider';
-import { CommitActionContext, CommitFileTreeItem, RevisionFileTreeItem } from '../providers/commitFilesTreeProvider';
+import {
+  CommitActionContext,
+  CommitFileTreeItem,
+  RevisionFileTreeItem,
+  WorkingTreeCompareFileTreeItem
+} from '../providers/commitFilesTreeProvider';
 import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
 import { WorktreeTreeItem } from '../providers/worktreeTreeProvider';
@@ -14,6 +19,7 @@ import { StateStore } from '../state/stateStore';
 import { BranchSearchView } from '../views/branchSearchView';
 import { CommitListView } from '../views/commitListView';
 import { GraphFilterView } from '../views/graphFilterView';
+import { pickRevisionToCompare } from '../views/revisionPicker';
 
 interface QuickAction {
   label: string;
@@ -61,6 +67,44 @@ export class CommandController {
       value instanceof CommitFileTreeItem ? value : undefined;
     const asRevisionViewFileItem = (value: unknown): RevisionFileTreeItem | undefined =>
       value instanceof RevisionFileTreeItem ? value : undefined;
+    const asWorkingTreeCompareFileItem = (
+      value: unknown
+    ): { filePath: string; ref: string; refLabel: string; status: string } | undefined => {
+      if (value instanceof WorkingTreeCompareFileTreeItem) {
+        return {
+          filePath: value.filePath,
+          ref: value.ref,
+          refLabel: value.refLabel,
+          status: value.status
+        };
+      }
+
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        'filePath' in value &&
+        'ref' in value &&
+        'refLabel' in value &&
+        'status' in value
+      ) {
+        const record = value as Record<string, unknown>;
+        if (
+          typeof record.filePath === 'string' &&
+          typeof record.ref === 'string' &&
+          typeof record.refLabel === 'string' &&
+          typeof record.status === 'string'
+        ) {
+          return {
+            filePath: record.filePath,
+            ref: record.ref,
+            refLabel: record.refLabel,
+            status: record.status
+          };
+        }
+      }
+
+      return undefined;
+    };
     const asFileResourceUri = (value: unknown): vscode.Uri | undefined => {
       if (value instanceof vscode.Uri) {
         return value.scheme === 'file' ? value : undefined;
@@ -601,6 +645,18 @@ export class CommandController {
       }
 
       await this.editor.openCommitFileDiffWithStatus(commitItem.sha, commitItem.filePath, commitItem.status);
+    });
+
+    register('intelliGit.workingTreeCompare.openFileDiff', async (arg?: unknown) => {
+      const item = asWorkingTreeCompareFileItem(arg);
+      if (!item) {
+        return;
+      }
+
+      await this.editor.openWorkingTreeFileDiff(item.filePath, item.ref, item.refLabel, {
+        preview: true,
+        status: item.status
+      });
     });
 
     register('intelliGit.graph.openRepositoryFileAtRevision', async (arg?: unknown) => {
@@ -1245,6 +1301,39 @@ export class CommandController {
       await this.git.amendCommit(commitMessage || undefined);
       repository.inputBox.value = '';
       await this.state.refreshAll();
+    });
+
+    register('intelliGit.compareWithRevision', async (arg?: unknown) => {
+      const uri = asFileResourceUri(arg);
+      if (!uri) {
+        void vscode.window.showWarningMessage('Right-click a file or folder in the Explorer to compare.');
+        return;
+      }
+
+      const gitRoot = await this.git.getGitRoot();
+      const normalizedTarget = uri.fsPath.replace(/[\\/]+$/, '');
+      const normalizedRoot = gitRoot.replace(/[\\/]+$/, '');
+      const repoRelative = normalizedTarget === normalizedRoot
+        ? ''
+        : this.git.toRepoRelative(uri.fsPath);
+      if (repoRelative === undefined) {
+        void vscode.window.showErrorMessage('Not inside a Git repository');
+        return;
+      }
+
+      const stat = await vscode.workspace.fs.stat(uri);
+      const isDirectory = (stat.type & vscode.FileType.Directory) !== 0;
+
+      const selection = await pickRevisionToCompare(this.git, this.state.branches, this.state.tags);
+      if (!selection) {
+        return;
+      }
+
+      if (isDirectory) {
+        await this.editor.openCompareWithRevisionForFolder(repoRelative, selection.ref, selection.label);
+      } else {
+        await this.editor.openCompareWithRevisionForFile(repoRelative, selection.ref, selection.label);
+      }
     });
 
     register('intelliGit.fileHistory.open', async (arg?: unknown) => {
