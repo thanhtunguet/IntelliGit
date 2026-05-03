@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { handleCommitAction, isCommitActionMessage, type CommitActionMessage } from './commitActions';
+import { formatCommitDate } from './commitDate';
 import { renderTemplate } from './templateRenderer';
 import { BranchRef, GraphCommit } from '../types';
 
@@ -87,15 +88,21 @@ export class GraphFilterView {
       type: 'init',
       filters,
       branches: branchNames,
-      commits: commits.map((commit) => ({
-        sha: commit.sha,
-        shortSha: commit.shortSha,
-        subject: commit.subject,
-        author: commit.author,
-        date: commit.date,
-        refs: commit.refs,
-        graph: commit.graph
-      }))
+      commits: commits.map((commit) => {
+        const date = formatCommitDate(commit.date);
+        return {
+          sha: commit.sha,
+          shortSha: commit.shortSha,
+          subject: commit.subject,
+          author: commit.author,
+          date: commit.date,
+          dateLabel: date.label,
+          dateTitle: date.title,
+          dateTimestamp: date.timestamp,
+          refs: commit.refs,
+          graph: commit.graph
+        };
+      })
     });
   }
 

@@ -1,10 +1,6 @@
 {{> partials/documentStart title="Filter Graph"}}
     {{> partials/styles/theme}}
-    :root {
-      --menu-bg: color-mix(in srgb, var(--bg), black 8%);
-      --menu-hover: color-mix(in srgb, var(--accent), transparent 75%);
-      --menu-separator: color-mix(in srgb, var(--border), transparent 25%);
-    }
+    {{> partials/styles/contextMenu minWidth="260px"}}
     {{> partials/styles/bodyBase background="var(--bg)" padding="14px 16px" gap="10px"}}
     h1 {
       margin: 0;
@@ -252,49 +248,6 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .context-menu {
-      position: fixed;
-      z-index: 1000;
-      min-width: 260px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px;
-      background: var(--menu-bg);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-      display: none;
-      backdrop-filter: blur(12px);
-    }
-    .context-menu.visible {
-      display: block;
-    }
-    .menu-item {
-      width: 100%;
-      border: 0;
-      background: transparent;
-      color: var(--fg);
-      text-align: left;
-      padding: 8px 10px;
-      border-radius: 6px;
-      font: inherit;
-      cursor: pointer;
-    }
-    .menu-item:hover {
-      background: var(--menu-hover);
-    }
-    .menu-item:disabled {
-      color: var(--muted);
-      cursor: default;
-      opacity: 0.65;
-    }
-    .menu-item:disabled:hover {
-      background: transparent;
-    }
-    .menu-separator {
-      height: 1px;
-      margin: 6px 2px;
-      background: var(--menu-separator);
-      border: 0;
-    }
   </style>
 </head>
 <body>
@@ -524,7 +477,7 @@
         const refs = Array.isArray(commit.refs) ? commit.refs.join(' ') : '';
         const refsLower = refs.toLowerCase();
         const authorLower = String(commit.author || '').toLowerCase();
-        const commitDate = new Date(commit.date || '').getTime();
+        const commitDate = Number(commit.dateTimestamp || 0);
         const messageOk = !message || subject.includes(message) || sha.includes(message);
         const branchOk = !branch || refsLower.includes(branch);
         const authorOk = !author || authorLower.includes(author);
@@ -548,14 +501,9 @@
         const subject = escapeHtml(commit.subject || '');
         const author = escapeHtml(commit.author || '');
         const graph = escapeHtml(renderGraphGlyph(commit.graph));
-        const date = new Date(commit.date || '');
-        const timestamp = Number.isFinite(date.getTime()) ? date.getTime() : 0;
-        const full = Number.isFinite(date.getTime())
-          ? escapeHtml(date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' }))
-          : '';
-        const dateText = Number.isFinite(date.getTime())
-          ? escapeHtml(date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))
-          : '';
+        const timestamp = Number(commit.dateTimestamp || 0);
+        const full = escapeHtml(commit.dateTitle || '');
+        const dateText = escapeHtml(commit.dateLabel || '');
         const expanded = expandedSha === rawSha;
         const row = '<tr class="commit-row' + (expanded ? ' expanded' : '') + '" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
         if (!expanded) {

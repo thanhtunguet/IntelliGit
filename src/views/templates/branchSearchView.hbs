@@ -3,10 +3,8 @@
     :root {
       --row-hover: color-mix(in srgb, var(--accent), transparent 85%);
       --row-active: color-mix(in srgb, var(--accent), transparent 70%);
-      --menu-bg: color-mix(in srgb, var(--bg), black 8%);
-      --menu-hover: color-mix(in srgb, var(--accent), transparent 75%);
-      --menu-separator: color-mix(in srgb, var(--border), transparent 25%);
     }
+    {{> partials/styles/contextMenu minWidth="240px"}}
     {{> partials/styles/bodyBase background="var(--bg)" padding="16px 20px" gap="12px"}}
     .header {
       display: flex;
@@ -136,41 +134,6 @@
       color: var(--muted);
       font-size: 12px;
     }
-    .context-menu {
-      position: fixed;
-      z-index: 1000;
-      min-width: 240px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px;
-      background: var(--menu-bg);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-      display: none;
-      backdrop-filter: blur(12px);
-    }
-    .context-menu.visible {
-      display: block;
-    }
-    .menu-item {
-      width: 100%;
-      border: 0;
-      background: transparent;
-      color: var(--fg);
-      text-align: left;
-      padding: 8px 10px;
-      border-radius: 6px;
-      font: inherit;
-      cursor: pointer;
-    }
-    .menu-item:hover {
-      background: var(--menu-hover);
-    }
-    .menu-separator {
-      height: 1px;
-      margin: 6px 2px;
-      background: var(--menu-separator);
-      border: 0;
-    }
   </style>
 </head>
 <body>
@@ -183,17 +146,7 @@
     </div>
   </div>
   <div id="list" class="list"></div>
-  <div id="branch-context-menu" class="context-menu" role="menu" aria-label="Branch context menu">
-    <button class="menu-item" data-command="intelliGit.branch.checkout">Checkout Branch</button>
-    <button class="menu-item" data-command="intelliGit.branch.compareWithCurrent">Compare With Current Branch</button>
-    <button class="menu-item" data-command="intelliGit.branch.rename">Rename Branch</button>
-    <button class="menu-item" data-command="intelliGit.branch.delete">Delete Branch</button>
-    <div class="menu-separator"></div>
-    <button class="menu-item" data-command="intelliGit.branch.track">Track Remote Branch</button>
-    <button class="menu-item" data-command="intelliGit.branch.untrack">Untrack Branch</button>
-    <button class="menu-item" data-command="intelliGit.branch.mergeIntoCurrent">Merge Into Current</button>
-    <button class="menu-item" data-command="intelliGit.branch.rebaseOnto">Rebase Current Onto Branch</button>
-  </div>
+  {{{branchContextMenuHtml}}}
 
   <script>
     const vscode = acquireVsCodeApi();

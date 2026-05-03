@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { renderTemplate } from './templateRenderer';
 import { handleCommitAction, isCommitActionMessage } from './commitActions';
+import { formatCommitDate } from './commitDate';
 import { CompareResult, GraphCommit } from '../types';
 
 interface CommitClickMessage {
@@ -88,12 +89,11 @@ function renderCommitRows(commits: GraphCommit[], side: 'left' | 'right'): strin
 
   return commits
     .map((commit) => {
-      const date = new Date(commit.date);
-      const rel = escapeHtml(relativeTime(date));
-      const full = escapeHtml(date.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' }));
+      const date = formatCommitDate(commit.date);
+      const rel = escapeHtml(date.label);
+      const full = escapeHtml(date.title);
       const graph = escapeHtml(renderGraphGlyph(commit.graph));
-      const timestamp = Number.isFinite(date.getTime()) ? date.getTime() : 0;
-      return `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-subject="${escapeHtml(commit.subject)}" data-author="${escapeHtml(commit.author)}" data-timestamp="${timestamp}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="col-graph copyable" title="Copy commit id: ${escapeHtml(commit.sha)}">${graph}</td><td class="col-subject">${escapeHtml(commit.subject)}</td><td class="col-author">${escapeHtml(commit.author)}</td><td class="col-date muted"><span title="${full}">${rel}</span></td></tr>`;
+      return `<tr class="commit-row" data-sha="${escapeHtml(commit.sha)}" data-subject="${escapeHtml(commit.subject)}" data-author="${escapeHtml(commit.author)}" data-timestamp="${date.timestamp}" data-side="${side}" title="${escapeHtml(commit.sha)}"><td class="col-graph copyable" title="Copy commit id: ${escapeHtml(commit.sha)}">${graph}</td><td class="col-subject">${escapeHtml(commit.subject)}</td><td class="col-author">${escapeHtml(commit.author)}</td><td class="col-date muted"><span title="${full}">${rel}</span></td></tr>`;
     })
     .join('');
 }
@@ -122,16 +122,6 @@ function renderGraphGlyph(graph?: string): string {
   if (graph === '>') return '▶';
   if (graph === '-') return '●';
   return '○';
-}
-
-function relativeTime(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
-  const mins = Math.floor(diffMs / 60_000);
-  const hours = Math.floor(diffMs / 3_600_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function escapeHtml(value: string): string {

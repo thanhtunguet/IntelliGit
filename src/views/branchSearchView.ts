@@ -1,33 +1,17 @@
 import * as vscode from 'vscode';
+import {
+  isBranchContextMenuCommand,
+  renderBranchContextMenu,
+  type BranchContextMenuCommand
+} from './branchContextMenu';
 import { renderTemplate } from './templateRenderer';
 import { BranchRef } from '../types';
 
 export interface BranchSearchHandlers {
   checkout(name: string): Promise<void>;
   openActions(name: string): Promise<void>;
-  runCommand(command: BranchSearchCommand, name: string): Promise<void>;
+  runCommand(command: BranchContextMenuCommand, name: string): Promise<void>;
 }
-
-type BranchSearchCommand =
-  | 'intelliGit.branch.checkout'
-  | 'intelliGit.branch.compareWithCurrent'
-  | 'intelliGit.branch.rename'
-  | 'intelliGit.branch.delete'
-  | 'intelliGit.branch.track'
-  | 'intelliGit.branch.untrack'
-  | 'intelliGit.branch.mergeIntoCurrent'
-  | 'intelliGit.branch.rebaseOnto';
-
-const branchSearchCommands = new Set<string>([
-  'intelliGit.branch.checkout',
-  'intelliGit.branch.compareWithCurrent',
-  'intelliGit.branch.rename',
-  'intelliGit.branch.delete',
-  'intelliGit.branch.track',
-  'intelliGit.branch.untrack',
-  'intelliGit.branch.mergeIntoCurrent',
-  'intelliGit.branch.rebaseOnto'
-]);
 
 type IncomingMessage =
   | { type: 'checkout'; name: string }
@@ -56,7 +40,9 @@ export class BranchSearchView {
       }
     );
 
-    this.panel.webview.html = renderTemplate('branchSearchView.hbs');
+    this.panel.webview.html = renderTemplate('branchSearchView.hbs', {
+      branchContextMenuHtml: renderBranchContextMenu()
+    });
 
     this.disposables.push(
       this.panel.webview.onDidReceiveMessage(async (message: unknown) => {
@@ -118,7 +104,7 @@ export class BranchSearchView {
         await this.handlers.openActions(message.name);
         return;
       case 'branchCommand':
-        if (isBranchSearchCommand(message.command)) {
+        if (isBranchContextMenuCommand(message.command)) {
           await this.handlers.runCommand(message.command, message.name);
         }
         return;
@@ -135,8 +121,4 @@ export class BranchSearchView {
       BranchSearchView.current = undefined;
     }
   }
-}
-
-function isBranchSearchCommand(command: string): command is BranchSearchCommand {
-  return branchSearchCommands.has(command);
 }

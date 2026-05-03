@@ -1,0 +1,48 @@
+    :root {
+      --menu-bg: color-mix(in srgb, var(--bg), black 8%);
+      --menu-hover: color-mix(in srgb, var(--accent), transparent 75%);
+      --menu-separator: color-mix(in srgb, var(--border), transparent 25%);
+    }
+    .context-menu {
+      position: fixed;
+      z-index: 1000;
+      min-width: {{#if minWidth}}{{minWidth}}{{else}}260px{{/if}};
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      background: var(--menu-bg);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      display: none;
+      backdrop-filter: blur(12px);
+    }
+    .context-menu.visible {
+      display: block;
+    }
+    .menu-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .menu-item:hover {
+      background: var(--menu-hover);
+    }
+    .menu-item:disabled {
+      color: var(--muted);
+      cursor: default;
+      opacity: 0.65;
+    }
+    .menu-item:disabled:hover {
+      background: transparent;
+    }
+    .menu-separator {
+      height: 1px;
+      margin: 6px 2px;
+      background: var(--menu-separator);
+      border: 0;
+    }
