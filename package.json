@@ -108,7 +108,8 @@
     "commands": [
       {
         "command": "intelliGit.refresh",
-        "title": "Refresh"
+        "title": "$(refresh)",
+        "icon": "$(refresh)"
       },
       {
         "command": "intelliGit.quickActions",
@@ -398,7 +399,7 @@
       },
       {
         "command": "intelliGit.worktree.refresh",
-        "title": "Refresh Worktrees",
+        "title": "$(refresh)",
         "icon": "$(refresh)"
       },
       {
@@ -457,7 +458,7 @@
       },
       {
         "command": "intelliGit.submodule.refresh",
-        "title": "Refresh Submodules",
+        "title": "$(refresh)",
         "icon": "$(refresh)"
       },
       {

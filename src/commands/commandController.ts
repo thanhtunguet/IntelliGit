@@ -1605,7 +1605,7 @@ export class CommandController {
 
   private async openQuickActions(): Promise<void> {
     const actions: QuickAction[] = [
-      { label: 'Refresh all views', run: () => this.state.refreshAll() },
+      { label: '$(refresh)', run: () => this.state.refreshAll() },
       { label: 'Search branches', run: async () => vscode.commands.executeCommand('intelliGit.branch.search') },
       { label: 'Create branch', run: async () => vscode.commands.executeCommand('intelliGit.branch.create') },
       { label: 'Checkout branch', run: async () => vscode.commands.executeCommand('intelliGit.branch.checkout') },
