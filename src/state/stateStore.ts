@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import { GitService } from '../services/gitService';
-import { BranchRef, ComparePair, CompareResult, GitOperationState, GraphCommit, MergeConflictFile, StashEntry, SubmoduleEntry, TagRef, WorkingTreeChange, WorktreeEntry } from '../types';
+import { BranchRef, CommitFilters, ComparePair, CompareResult, GitOperationState, GraphCommit, MergeConflictFile, StashEntry, SubmoduleEntry, TagRef, WorkingTreeChange, WorktreeEntry } from '../types';
 
 export class StateStore {
   private _branches: BranchRef[] = [];
@@ -15,13 +15,7 @@ export class StateStore {
   private _recentComparePairs: ComparePair[] = [];
   private _worktrees: WorktreeEntry[] = [];
   private _submodules: SubmoduleEntry[] = [];
-  private _graphFilters: {
-    branch?: string;
-    author?: string;
-    message?: string;
-    since?: string;
-    until?: string;
-  } = {};
+  private _graphFilters: CommitFilters = {};
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChange = this.emitter.event;
   private _changesRefreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,13 +74,7 @@ export class StateStore {
     return [...this._recentComparePairs];
   }
 
-  get graphFilters(): {
-    branch?: string;
-    author?: string;
-    message?: string;
-    since?: string;
-    until?: string;
-  } {
+  get graphFilters(): CommitFilters {
     return { ...this._graphFilters };
   }
 
@@ -180,13 +168,7 @@ export class StateStore {
     this.emitter.fire();
   }
 
-  async refreshGraph(filters?: {
-    branch?: string;
-    author?: string;
-    message?: string;
-    since?: string;
-    until?: string;
-  }): Promise<void> {
+  async refreshGraph(filters?: CommitFilters): Promise<void> {
     this._graphFilters = filters ? { ...filters } : this._graphFilters;
     const maxGraphCommits = this.configuration.get<number>('maxGraphCommits', 200);
     this._graph = await this.git.getGraph(maxGraphCommits, this._graphFilters);

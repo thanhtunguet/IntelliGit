@@ -1,39 +1,43 @@
 import * as vscode from 'vscode';
 import { handleCommitAction, isCommitActionMessage, type CommitActionMessage } from './commitActions';
-import { collectBranchNames, sanitizeCommitFilters, serializeCommits } from './commitFilterModel';
+import { collectBranchNames, serializeCommits } from './commitFilterModel';
 import { renderTemplate } from './templateRenderer';
-import { BranchRef, CommitFilters, GraphCommit } from '../types';
+import { BranchRef, GraphCommit } from '../types';
 
-export interface GraphFilterHandlers {
-  apply(filters: CommitFilters): Promise<void>;
-  clear(): Promise<void>;
+export interface CommitListOptions {
+  readonly id: string;
+  readonly title: string;
+  readonly hint: string;
+  readonly branches: readonly BranchRef[];
+  readonly commits: readonly GraphCommit[];
+}
+
+export interface CommitListHandlers {
   openCommitDetails(sha: string, subject: string): Promise<void>;
   getCommitFiles(sha: string): Promise<string[]>;
   openFileDiff(sha: string, filePath: string): Promise<void>;
 }
 
 type IncomingMessage =
-  | { type: 'apply'; filters: CommitFilters }
-  | { type: 'clear' }
   | { type: 'close' }
   | { type: 'openCommitDetails'; sha: string; subject: string }
   | { type: 'loadCommitFiles'; sha: string }
   | { type: 'openCommitFile'; sha: string; filePath: string }
   | CommitActionMessage;
 
-export class GraphFilterView {
-  private static current: GraphFilterView | undefined;
+export class CommitListView {
+  private static readonly current = new Map<string, CommitListView>();
 
   private readonly panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
 
   private constructor(
-    private readonly handlers: GraphFilterHandlers,
-    private readonly getInitial: () => { filters: CommitFilters; branches: BranchRef[]; commits: GraphCommit[] }
+    private options: CommitListOptions,
+    private readonly handlers: CommitListHandlers
   ) {
     this.panel = vscode.window.createWebviewPanel(
-      'intelliGit.graphFilter',
-      'IntelliGit: Filter Graph',
+      'intelliGit.commitList',
+      `IntelliGit: ${options.title}`,
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
@@ -42,9 +46,9 @@ export class GraphFilterView {
     );
 
     this.panel.webview.html = renderTemplate('graphFilterView.hbs', {
-      title: 'Filter Graph',
-      hint: 'Inline filters with live commit preview. Click a commit to open its details.',
-      showApply: true
+      title: options.title,
+      hint: options.hint,
+      showApply: false
     });
 
     this.disposables.push(
@@ -63,27 +67,26 @@ export class GraphFilterView {
     this.postInitial();
   }
 
-  static open(
-    handlers: GraphFilterHandlers,
-    getInitial: () => { filters: CommitFilters; branches: BranchRef[]; commits: GraphCommit[] }
-  ): GraphFilterView {
-    if (GraphFilterView.current) {
-      GraphFilterView.current.panel.reveal(vscode.ViewColumn.Active, false);
-      GraphFilterView.current.postInitial();
-      return GraphFilterView.current;
+  static open(options: CommitListOptions, handlers: CommitListHandlers): CommitListView {
+    const existing = CommitListView.current.get(options.id);
+    if (existing) {
+      existing.options = options;
+      existing.panel.reveal(vscode.ViewColumn.Active, false);
+      existing.postInitial();
+      return existing;
     }
-    const view = new GraphFilterView(handlers, getInitial);
-    GraphFilterView.current = view;
+
+    const view = new CommitListView(options, handlers);
+    CommitListView.current.set(options.id, view);
     return view;
   }
 
   private postInitial(): void {
-    const { filters, branches, commits } = this.getInitial();
     void this.panel.webview.postMessage({
       type: 'init',
-      filters,
-      branches: collectBranchNames(branches),
-      commits: serializeCommits(commits)
+      filters: {},
+      branches: collectBranchNames(this.options.branches),
+      commits: serializeCommits(this.options.commits)
     });
   }
 
@@ -96,14 +99,6 @@ export class GraphFilterView {
       return;
     }
     switch (message.type) {
-      case 'apply':
-        await this.handlers.apply(sanitizeCommitFilters(message.filters));
-        this.panel.dispose();
-        return;
-      case 'clear':
-        await this.handlers.clear();
-        this.panel.dispose();
-        return;
       case 'close':
         this.panel.dispose();
         return;
@@ -138,10 +133,8 @@ export class GraphFilterView {
   }
 
   private dispose(): void {
-    this.disposables.forEach((d) => d.dispose());
+    this.disposables.forEach((disposable) => disposable.dispose());
     this.disposables = [];
-    if (GraphFilterView.current === this) {
-      GraphFilterView.current = undefined;
-    }
+    CommitListView.current.delete(this.options.id);
   }
 }

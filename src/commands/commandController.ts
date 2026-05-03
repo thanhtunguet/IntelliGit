@@ -12,6 +12,7 @@ import { GitService } from '../services/gitService';
 import { expandTemplate, loadTemplates } from '../state/commitTemplates';
 import { StateStore } from '../state/stateStore';
 import { BranchSearchView } from '../views/branchSearchView';
+import { CommitListView } from '../views/commitListView';
 import { GraphFilterView } from '../views/graphFilterView';
 
 interface QuickAction {
@@ -191,13 +192,14 @@ export class CommandController {
       await this.state.refreshAll();
     });
 
-    register('intelliGit.tag.openDetails', async (arg?: unknown) => {
+    register('intelliGit.tag.openCommits', async (arg?: unknown) => {
       const revision = toTagRevision(arg) ?? (await this.pickCommitSha('Pick tag or revision for details'));
       if (!revision) {
         return;
       }
 
-      await vscode.commands.executeCommand('intelliGit.graph.openDetails', revision);
+      const tagRef = toTagRef(arg) ?? revision;
+      await this.openRefCommits(`tag:${revision}`, `Tag: ${tagRef}`, revision);
     });
 
     register('intelliGit.branch.create', async () => {
@@ -1633,24 +1635,26 @@ export class CommandController {
   }
 
   private async openBranchCommits(branchName: string): Promise<void> {
-    const maxCommits = Math.max(1, vscode.workspace.getConfiguration('intelliGit').get<number>('maxGraphCommits', 200));
-    const commits = await this.git.getGraph(maxCommits, { branch: branchName });
-    const rows = commits.length > 0
-      ? commits.map((commit) => {
-        const refs = commit.refs.length ? ` · ${commit.refs.join(', ')}` : '';
-        return `- \`${commit.shortSha}\` ${commit.subject}\n  ${commit.author} · ${new Date(commit.date).toLocaleString()}${refs}`;
-      })
-      : ['No commits found.'];
-    const content = [
-      `# ${branchName}`,
-      '',
-      `Showing up to ${maxCommits} commits reachable from \`${branchName}\`.`,
-      '',
-      ...rows
-    ].join('\n');
+    await this.openRefCommits(`branch:${branchName}`, `Branch: ${branchName}`, branchName);
+  }
 
-    const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
-    await vscode.window.showTextDocument(doc, { preview: false });
+  private async openRefCommits(id: string, title: string, ref: string): Promise<void> {
+    const maxCommits = Math.max(1, vscode.workspace.getConfiguration('intelliGit').get<number>('maxGraphCommits', 200));
+    const commits = await this.git.getGraph(maxCommits, { branch: ref });
+    CommitListView.open(
+      {
+        id,
+        title,
+        hint: `Showing up to ${maxCommits} commits reachable from ${ref}. Filters update the table locally.`,
+        branches: this.state.branches,
+        commits
+      },
+      {
+        openCommitDetails: async (sha, subject) => this.commitFilesView.showCommit(sha, subject),
+        getCommitFiles: async (sha) => this.git.getFilesInCommit(sha),
+        openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath)
+      }
+    );
   }
 
   private async openQuickActions(): Promise<void> {

@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import {
   BranchRef,
+  CommitFilters,
   CommitDetails,
   CommitFileChange,
   CompareResult,
@@ -759,13 +760,7 @@ export class GitService {
     return result.stdout;
   }
 
-  async getGraph(maxCount: number, filters?: {
-    branch?: string;
-    author?: string;
-    message?: string;
-    since?: string;
-    until?: string;
-  }): Promise<GraphCommit[]> {
+  async getGraph(maxCount: number, filters?: CommitFilters): Promise<GraphCommit[]> {
     const format = [
       '%m',
       '%H',

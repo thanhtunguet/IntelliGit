@@ -100,8 +100,8 @@ export class TagTreeItem extends vscode.TreeItem {
     this.tooltip = buildTagTooltip(tag);
     this.iconPath = new vscode.ThemeIcon('tag');
     this.command = {
-      title: 'Open Tag Details',
-      command: 'intelliGit.tag.openDetails',
+      title: 'Open Tag Commits',
+      command: 'intelliGit.tag.openCommits',
       arguments: [this]
     };
   }

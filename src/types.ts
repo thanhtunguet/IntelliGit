@@ -2,6 +2,14 @@ import * as vscode from 'vscode';
 
 export type BranchType = 'local' | 'remote';
 
+export interface CommitFilters {
+  readonly branch?: string;
+  readonly author?: string;
+  readonly message?: string;
+  readonly since?: string;
+  readonly until?: string;
+}
+
 export interface RefComparison {
   readonly ref: string;
   readonly ahead: number;

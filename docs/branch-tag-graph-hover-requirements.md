@@ -13,8 +13,8 @@ Make the Branches, Tags, and Git Graph views feel predictable: clicking a row sh
 
 ## Final Behaviors
 
-- Branch click opens a normal markdown editor tab with commits reachable from that branch, capped by `intelliGit.maxGraphCommits`.
-- Tag click opens commit details for the tag target revision.
+- Branch click opens a custom webview table with commits reachable from that branch, capped by `intelliGit.maxGraphCommits`.
+- Tag click opens a custom webview table with commits reachable from the tag target revision, capped by `intelliGit.maxGraphCommits`.
 - Git Graph commit click keeps the VS Code tree default: expand or collapse the changed-file list.
 - Checkout Branch, Checkout Tag, and Open Commit Details remain available from context menus, not as inline hover buttons.
 - File-level inline actions, such as opening a changed-file diff, remain unchanged.
@@ -34,7 +34,8 @@ Make the Branches, Tags, and Git Graph views feel predictable: clicking a row sh
 - Add a reusable `git rev-list --left-right --count A...B` parser and comparison formatter with unit coverage.
 - Populate branch and tag comparisons during Git state refresh.
 - Route `BranchTreeItem.command` to `intelliGit.branch.openCommits`.
-- Route `TagTreeItem.command` to `intelliGit.tag.openDetails`.
+- Route `TagTreeItem.command` to `intelliGit.tag.openCommits`.
+- Use the same commit filter contract and webview filter controls for Filter Graph, Branch commit lists, and Tag commit lists.
 - Keep `GraphCommitTreeItem` command-free so tree expand/collapse remains the default click behavior.
 - Move branch checkout, tag checkout, and graph open-details menu contributions out of the `inline` group.
 
@@ -50,6 +51,6 @@ Make the Branches, Tags, and Git Graph views feel predictable: clicking a row sh
 
 ## Open Notes
 
-- Branch commit-list tabs are intentionally markdown documents for the first pass, matching existing commit detail and file history patterns.
+- Branch and tag commit-list tabs use the same custom commit-table webview filter controls as Filter Graph.
 - Checkout remains intentionally available, but only through context menus and quick actions.
 - GitNexus impact must be rerun after any later implementation changes if these symbols are touched again.

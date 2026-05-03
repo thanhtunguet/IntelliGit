@@ -174,8 +174,8 @@
         "title": "Checkout New Branch"
       },
       {
-        "command": "intelliGit.tag.openDetails",
-        "title": "Open Tag Details"
+        "command": "intelliGit.tag.openCommits",
+        "title": "Open Tag Commits"
       },
       {
         "command": "intelliGit.tag.checkout",

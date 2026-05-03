@@ -1,4 +1,4 @@
-{{> partials/documentStart title="Filter Graph"}}
+{{> partials/documentStart title=title}}
     {{> partials/styles/theme}}
     {{> partials/styles/contextMenu minWidth="260px"}}
     {{> partials/styles/bodyBase background="var(--bg)" padding="14px 16px" gap="10px"}}
@@ -251,8 +251,8 @@
   </style>
 </head>
 <body>
-  <h1>Filter Graph</h1>
-  <p class="hint">Inline filters with live commit preview. Click a commit to open its changed files in Commit Details view.</p>
+  <h1>{{title}}</h1>
+  <p class="hint">{{hint}}</p>
 
   <form id="form">
     <section class="filters-inline">
@@ -309,9 +309,11 @@
     </section>
 
     <div class="actions">
-      <button type="button" class="secondary" id="cancel">Cancel</button>
+      <button type="button" class="secondary" id="cancel">{{#if showApply}}Cancel{{else}}Close{{/if}}</button>
       <button type="button" class="secondary" id="clear">Clear Filters</button>
+      {{#if showApply}}
       <button type="submit" class="primary" id="apply">Apply</button>
+      {{/if}}
     </div>
   </form>
 
@@ -321,6 +323,7 @@
     const vscode = acquireVsCodeApi();
     const form = document.getElementById('form');
     const MAX_PREVIEW = 200;
+    const SHOW_APPLY = {{#if showApply}}true{{else}}false{{/if}};
     const state = {
       branches: [],
       authors: [],
@@ -664,7 +667,9 @@
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      vscode.postMessage({ type: 'apply', filters: collect() });
+      if (SHOW_APPLY) {
+        vscode.postMessage({ type: 'apply', filters: collect() });
+      }
     });
 
     document.getElementById('cancel').addEventListener('click', () => {
@@ -672,7 +677,18 @@
     });
 
     document.getElementById('clear').addEventListener('click', () => {
-      vscode.postMessage({ type: 'clear' });
+      if (SHOW_APPLY) {
+        vscode.postMessage({ type: 'clear' });
+        return;
+      }
+      messageInput.value = '';
+      branchInput.value = '';
+      authorInput.value = '';
+      sinceInput.value = '';
+      untilInput.value = '';
+      branchAutocomplete.close();
+      authorAutocomplete.close();
+      renderPreview();
     });
 
     fieldClearButtons.forEach((button) => {
