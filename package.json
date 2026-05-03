@@ -125,6 +125,10 @@
         "title": "Branch Action Hub"
       },
       {
+        "command": "intelliGit.branch.openCommits",
+        "title": "Open Branch Commits"
+      },
+      {
         "command": "intelliGit.branch.create",
         "title": "Create Branch"
       },
@@ -168,6 +172,10 @@
       {
         "command": "intelliGit.tag.checkoutNewBranch",
         "title": "Checkout New Branch"
+      },
+      {
+        "command": "intelliGit.tag.openDetails",
+        "title": "Open Tag Details"
       },
       {
         "command": "intelliGit.tag.checkout",
@@ -625,7 +633,7 @@
         {
           "command": "intelliGit.branch.checkout",
           "when": "view == intelliGit.branches && viewItem == branchRef",
-          "group": "inline"
+          "group": "navigation"
         },
         {
           "command": "intelliGit.branch.compareWithCurrent",
@@ -665,7 +673,7 @@
         {
           "command": "intelliGit.tag.checkout",
           "when": "view == intelliGit.branches && viewItem == tagRef",
-          "group": "inline"
+          "group": "navigation"
         },
         {
           "command": "intelliGit.tag.checkoutNewBranch",
@@ -725,7 +733,7 @@
         {
           "command": "intelliGit.graph.openDetails",
           "when": "view == intelliGit.graph && viewItem == graphCommit",
-          "group": "inline"
+          "group": "navigation"
         },
         {
           "command": "intelliGit.graph.openFileDiff",

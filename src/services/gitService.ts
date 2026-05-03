@@ -13,6 +13,7 @@ import {
   GitOperationState,
   GraphCommit,
   MergeConflictFile,
+  RefComparison,
   RepositoryContext,
   StashEntry,
   TagRef,
@@ -26,6 +27,7 @@ import {
 } from '../types';
 import { SubmoduleService } from './submoduleService';
 import { parseWorktreeListPorcelain, parseWorktreePruneDryRun } from './worktreeParsing';
+import { parseRevListComparison, parseTrack } from './gitParsing';
 
 const FIELD_SEPARATOR = '|~|';
 const RECORD_SEPARATOR = '|#|';
@@ -175,7 +177,7 @@ export class GitService {
       'refs/remotes'
     ]);
 
-    return result.stdout
+    const parsed = result.stdout
       .split(RECORD_SEPARATOR)
       .map((line) => line.trim())
       .filter(Boolean)
@@ -203,7 +205,21 @@ export class GitService {
         // Ignore remote root refs like "origin" (no slash) so each remote
         // group only contains actual branches under "<remote>/<branch>".
         return branch.type !== 'remote' || branch.name.includes('/');
+      });
+
+    const withComparisons = await Promise.all(
+      parsed.map(async (branch) => {
+        const comparisonRef = resolveBranchComparisonRef(branch, parsed);
+        if (!comparisonRef) {
+          return branch;
+        }
+
+        const comparison = await this.getRefComparison(branch.name, comparisonRef);
+        return comparison ? { ...branch, comparison } : branch;
       })
+    );
+
+    return withComparisons
       .sort((a, b) => {
         if (a.current) {
           return -1;
@@ -226,7 +242,8 @@ export class GitService {
       'refs/tags'
     ]);
 
-    return result.stdout
+    const currentRef = await this.getCurrentBranch().catch(() => 'HEAD');
+    const parsed = result.stdout
       .split(RECORD_SEPARATOR)
       .map((line) => line.trim())
       .filter(Boolean)
@@ -239,7 +256,16 @@ export class GitService {
           sha: peeledSha || objectSha || undefined,
           lastCommitEpoch: Number.isNaN(commitEpoch) ? undefined : commitEpoch
         };
+      });
+
+    const withComparisons = await Promise.all(
+      parsed.map(async (tag) => {
+        const comparison = await this.getRefComparison(tag.sha ?? tag.name, currentRef);
+        return comparison ? { ...tag, comparison } : tag;
       })
+    );
+
+    return withComparisons
       .sort((a, b) => {
         const left = a.lastCommitEpoch ?? 0;
         const right = b.lastCommitEpoch ?? 0;
@@ -248,6 +274,16 @@ export class GitService {
         }
         return a.name.localeCompare(b.name);
       });
+  }
+
+  private async getRefComparison(ref: string, comparisonRef: string): Promise<RefComparison | undefined> {
+    try {
+      const result = await this.runGit(['rev-list', '--left-right', '--count', `${ref}...${comparisonRef}`]);
+      const { ahead, behind } = parseRevListComparison(result.stdout);
+      return { ref: comparisonRef, ahead, behind };
+    } catch {
+      return undefined;
+    }
   }
 
   async createBranch(name: string, base?: string): Promise<void> {
@@ -1585,17 +1621,21 @@ export class GitService {
   }
 }
 
-function parseTrack(value: string): { ahead: number; behind: number } {
-  if (!value) {
-    return { ahead: 0, behind: 0 };
+function resolveBranchComparisonRef(branch: BranchRef, branches: BranchRef[]): string | undefined {
+  if (branch.type === 'local') {
+    if (branch.upstream) {
+      return branch.upstream;
+    }
+
+    const exactOrigin = branches.find((candidate) => candidate.type === 'remote' && candidate.name === `origin/${branch.name}`);
+    if (exactOrigin) {
+      return exactOrigin.name;
+    }
+
+    return branches.find((candidate) => candidate.type === 'remote' && candidate.shortName === branch.name)?.name;
   }
 
-  const aheadMatch = value.match(/ahead (\d+)/);
-  const behindMatch = value.match(/behind (\d+)/);
-  return {
-    ahead: Number(aheadMatch?.[1] ?? 0),
-    behind: Number(behindMatch?.[1] ?? 0)
-  };
+  return branches.find((candidate) => candidate.type === 'local' && candidate.name === branch.shortName)?.name;
 }
 
 function parseGraphRows(raw: string): GraphCommit[] {

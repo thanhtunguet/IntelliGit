@@ -153,6 +153,15 @@ export class CommandController {
       await this.openBranchActionHub(arg);
     });
 
+    register('intelliGit.branch.openCommits', async (arg?: unknown) => {
+      const branchName = toBranchName(arg) ?? (await this.pickBranchName('Pick branch to open commits'));
+      if (!branchName) {
+        return;
+      }
+
+      await this.openBranchCommits(branchName);
+    });
+
     register('intelliGit.branch.search', async () => {
       BranchSearchView.open(
         {
@@ -180,6 +189,15 @@ export class CommandController {
 
       await this.git.checkoutBranch(branchName);
       await this.state.refreshAll();
+    });
+
+    register('intelliGit.tag.openDetails', async (arg?: unknown) => {
+      const revision = toTagRevision(arg) ?? (await this.pickCommitSha('Pick tag or revision for details'));
+      if (!revision) {
+        return;
+      }
+
+      await vscode.commands.executeCommand('intelliGit.graph.openDetails', revision);
     });
 
     register('intelliGit.branch.create', async () => {
@@ -1612,6 +1630,27 @@ export class CommandController {
       await this.git.deinitSubmodule(item.submodule.path, item.submodule.isDirty);
       await this.state.refreshSubmodules();
     });
+  }
+
+  private async openBranchCommits(branchName: string): Promise<void> {
+    const maxCommits = Math.max(1, vscode.workspace.getConfiguration('intelliGit').get<number>('maxGraphCommits', 200));
+    const commits = await this.git.getGraph(maxCommits, { branch: branchName });
+    const rows = commits.length > 0
+      ? commits.map((commit) => {
+        const refs = commit.refs.length ? ` · ${commit.refs.join(', ')}` : '';
+        return `- \`${commit.shortSha}\` ${commit.subject}\n  ${commit.author} · ${new Date(commit.date).toLocaleString()}${refs}`;
+      })
+      : ['No commits found.'];
+    const content = [
+      `# ${branchName}`,
+      '',
+      `Showing up to ${maxCommits} commits reachable from \`${branchName}\`.`,
+      '',
+      ...rows
+    ].join('\n');
+
+    const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
+    await vscode.window.showTextDocument(doc, { preview: false });
   }
 
   private async openQuickActions(): Promise<void> {

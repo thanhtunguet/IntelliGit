@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { StateStore } from '../state/stateStore';
 import { BranchRef, TagRef } from '../types';
+import { formatComparisonSummary } from '../services/gitParsing';
 
 class BranchSectionNode extends vscode.TreeItem {
   constructor(
@@ -73,14 +74,14 @@ export class BranchTreeItem extends vscode.TreeItem {
     this.contextValue = 'branchRef';
     this.id = `branch:${idScope}:${branch.fullName}`;
     this.description = describeBranch(branch);
-    this.tooltip = `${branch.name}\n${branch.fullName}${branch.upstream ? `\nupstream: ${branch.upstream}` : ''}`;
+    this.tooltip = buildBranchTooltip(branch);
     this.iconPath = branch.current
       ? new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green'))
       : new vscode.ThemeIcon(branch.type === 'remote' ? 'cloud' : 'git-branch');
 
     this.command = {
-      title: 'Checkout Branch',
-      command: 'intelliGit.branch.checkout',
+      title: 'Open Branch Commits',
+      command: 'intelliGit.branch.openCommits',
       arguments: [this]
     };
   }
@@ -96,8 +97,13 @@ export class TagTreeItem extends vscode.TreeItem {
     this.contextValue = 'tagRef';
     this.id = `tag:${idScope}:${tag.fullName}`;
     this.description = 'tag';
-    this.tooltip = `${tag.name}\n${tag.fullName}${tag.sha ? `\n${tag.sha}` : ''}`;
+    this.tooltip = buildTagTooltip(tag);
     this.iconPath = new vscode.ThemeIcon('tag');
+    this.command = {
+      title: 'Open Tag Details',
+      command: 'intelliGit.tag.openDetails',
+      arguments: [this]
+    };
   }
 }
 
@@ -329,4 +335,40 @@ function describeBranch(branch: BranchRef): string {
     parts.push(`▲${branch.ahead} ▼${branch.behind}`);
   }
   return parts.join(' · ');
+}
+
+function buildBranchTooltip(branch: BranchRef): string {
+  const lines = [
+    branch.name,
+    branch.fullName,
+    `Last update: ${formatEpoch(branch.lastCommitEpoch)}`,
+    branch.upstream ? `Upstream: ${branch.upstream}` : '',
+    formatComparison(branch.comparison)
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
+function buildTagTooltip(tag: TagRef): string {
+  const lines = [
+    tag.name,
+    tag.fullName,
+    tag.sha ? `Revision: ${tag.sha}` : '',
+    `Last update: ${formatEpoch(tag.lastCommitEpoch)}`,
+    formatComparison(tag.comparison)
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
+function formatComparison(comparison: BranchRef['comparison'] | TagRef['comparison']): string {
+  if (!comparison) {
+    return '';
+  }
+  return formatComparisonSummary(comparison.ref, comparison.ahead, comparison.behind);
+}
+
+function formatEpoch(epoch: number | undefined): string {
+  if (!epoch) {
+    return 'unknown';
+  }
+  return new Date(epoch * 1000).toLocaleString();
 }

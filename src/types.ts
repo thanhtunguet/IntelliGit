@@ -2,6 +2,12 @@ import * as vscode from 'vscode';
 
 export type BranchType = 'local' | 'remote';
 
+export interface RefComparison {
+  readonly ref: string;
+  readonly ahead: number;
+  readonly behind: number;
+}
+
 export interface BranchRef {
   readonly name: string;
   readonly shortName: string;
@@ -13,6 +19,7 @@ export interface BranchRef {
   readonly behind: number;
   readonly current: boolean;
   readonly lastCommitEpoch?: number;
+  readonly comparison?: RefComparison;
 }
 
 export interface TagRef {
@@ -20,6 +27,7 @@ export interface TagRef {
   readonly fullName: string;
   readonly sha?: string;
   readonly lastCommitEpoch?: number;
+  readonly comparison?: RefComparison;
 }
 
 export interface StashEntry {

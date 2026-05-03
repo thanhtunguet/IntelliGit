@@ -1,23 +1,24 @@
 import * as assert from 'assert';
 import { describe, it } from 'node:test';
+import { formatComparisonSummary, parseRevListComparison, parseTrack } from '../services/gitParsing';
 import { parseSubmoduleConfig, parseSubmoduleStatus } from '../services/submoduleParsing';
 import { parseWorktreeListPorcelain, parseWorktreePruneDryRun } from '../services/worktreeParsing';
 
 describe('Git parsing utilities', () => {
   it('parses branch track output', () => {
-    const parseTrack = (value: string): { ahead: number; behind: number } => {
-      const aheadMatch = value.match(/ahead (\d+)/);
-      const behindMatch = value.match(/behind (\d+)/);
-      return {
-        ahead: Number(aheadMatch?.[1] ?? 0),
-        behind: Number(behindMatch?.[1] ?? 0)
-      };
-    };
-
     assert.deepStrictEqual(parseTrack('[ahead 2]'), { ahead: 2, behind: 0 });
     assert.deepStrictEqual(parseTrack('[behind 3]'), { ahead: 0, behind: 3 });
     assert.deepStrictEqual(parseTrack('[ahead 1, behind 4]'), { ahead: 1, behind: 4 });
     assert.deepStrictEqual(parseTrack(''), { ahead: 0, behind: 0 });
+  });
+
+  it('parses rev-list comparison counts', () => {
+    assert.deepStrictEqual(parseRevListComparison('2\t5\n'), { ahead: 2, behind: 5 });
+    assert.deepStrictEqual(parseRevListComparison('0 0'), { ahead: 0, behind: 0 });
+  });
+
+  it('formats comparison count summaries', () => {
+    assert.strictEqual(formatComparisonSummary('origin/main', 3, 1), 'Compared with origin/main: ahead 3, behind 1');
   });
 
   it('parses shortstat line', () => {
