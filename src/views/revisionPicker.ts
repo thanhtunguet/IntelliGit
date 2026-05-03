@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import type { BranchRef, TagRef, ResolvedCommitMeta } from '../types';
+import type { GitService } from '../services/gitService';
+import type { BranchRef, TagRef } from '../types';
 
 // ── Exported types ────────────────────────────────────────────────────────────
 
@@ -14,8 +15,7 @@ export interface RevisionSelection {
 // ── Internal QuickPick item shape ─────────────────────────────────────────────
 
 interface RevisionPickerItem extends vscode.QuickPickItem {
-  readonly revisionRef?: string;
-  readonly revisionKind?: RevisionKind;
+  readonly revision?: RevisionSelection;
 }
 
 // ── Pure helpers (exported for testing) ──────────────────────────────────────
@@ -44,24 +44,22 @@ export function buildRevisionPickerItems(
   const remoteBranches = branches.filter((b) => b.type === 'remote');
 
   if (localBranches.length > 0) {
-    items.push({ label: 'Local Branches', kind: vscode.QuickPickItemKind.Separator } as RevisionPickerItem);
+    items.push({ label: 'Local branches', kind: vscode.QuickPickItemKind.Separator } as RevisionPickerItem);
     for (const branch of localBranches) {
       items.push({
-        label: branch.name,
+        label: `$(git-branch) ${branch.name}`,
         description: branch.current ? '(current)' : undefined,
-        revisionRef: branch.name,
-        revisionKind: 'branch' as RevisionKind
+        revision: { ref: branch.name, label: branch.name, kind: 'branch' }
       });
     }
   }
 
   if (remoteBranches.length > 0) {
-    items.push({ label: 'Remote Branches', kind: vscode.QuickPickItemKind.Separator } as RevisionPickerItem);
+    items.push({ label: 'Remote branches', kind: vscode.QuickPickItemKind.Separator } as RevisionPickerItem);
     for (const branch of remoteBranches) {
       items.push({
-        label: branch.name,
-        revisionRef: branch.name,
-        revisionKind: 'remote' as RevisionKind
+        label: `$(cloud) ${branch.name}`,
+        revision: { ref: branch.name, label: branch.name, kind: 'remote' }
       });
     }
   }
@@ -70,9 +68,8 @@ export function buildRevisionPickerItems(
     items.push({ label: 'Tags', kind: vscode.QuickPickItemKind.Separator } as RevisionPickerItem);
     for (const tag of tags) {
       items.push({
-        label: tag.name,
-        revisionRef: tag.name,
-        revisionKind: 'tag' as RevisionKind
+        label: `$(tag) ${tag.name}`,
+        revision: { ref: tag.name, label: tag.name, kind: 'tag' }
       });
     }
   }
@@ -83,7 +80,7 @@ export function buildRevisionPickerItems(
 // ── Minimal git interface (avoids importing full GitService in tests) ──────────
 
 export interface RevisionResolver {
-  resolveRevisionToCommit(input: string): Promise<ResolvedCommitMeta | undefined>;
+  resolveRevisionToCommit(input: string): Promise<{ sha: string; subject: string; author: string; date: string } | undefined>;
 }
 
 // ── pickRevisionToCompare ─────────────────────────────────────────────────────
@@ -97,11 +94,21 @@ export interface RevisionResolver {
  * Returns the selected `RevisionSelection` or `undefined` if the user cancelled.
  */
 export async function pickRevisionToCompare(
-  git: RevisionResolver,
+  git: GitService,
   branches: readonly BranchRef[],
   tags: readonly TagRef[]
 ): Promise<RevisionSelection | undefined> {
   return new Promise<RevisionSelection | undefined>((resolve) => {
+    let resolved = false;
+
+    const settle = (value: RevisionSelection | undefined): void => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      resolve(value);
+    };
+
     const qp = vscode.window.createQuickPick<RevisionPickerItem>();
     qp.placeholder = 'Select a branch, tag, or type a commit SHA…';
     qp.matchOnDescription = true;
@@ -110,6 +117,7 @@ export async function pickRevisionToCompare(
     qp.items = baseItems;
 
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    let lookupSeq = 0;
     let syntheticItem: RevisionPickerItem | undefined;
 
     const clearSynthetic = () => {
@@ -128,54 +136,56 @@ export async function pickRevisionToCompare(
       const trimmed = value.trim().toLowerCase();
       if (!isLikelyShaPrefix(trimmed)) {
         clearSynthetic();
+        qp.busy = false;
         return;
       }
 
+      const seq = ++lookupSeq;
+      qp.busy = true;
+
       debounceTimer = setTimeout(async () => {
-        qp.busy = true;
         try {
           const meta = await git.resolveRevisionToCommit(trimmed);
+          if (seq !== lookupSeq) {
+            return; // stale lookup — a newer input has superseded this one
+          }
           if (meta) {
             const shortSha = meta.sha.slice(0, 7);
             syntheticItem = {
               label: `$(git-commit) ${shortSha}`,
               description: meta.subject,
               detail: `${meta.author}  ${meta.date}`,
-              revisionRef: meta.sha,
-              revisionKind: 'commit' as RevisionKind
+              revision: { ref: meta.sha, label: shortSha, kind: 'commit' }
             };
             qp.items = [syntheticItem, ...baseItems];
           } else {
             clearSynthetic();
           }
         } catch {
-          clearSynthetic();
+          if (seq === lookupSeq) {
+            clearSynthetic();
+          }
         } finally {
-          qp.busy = false;
+          if (seq === lookupSeq) {
+            qp.busy = false;
+          }
         }
       }, 150);
     });
 
     qp.onDidAccept(() => {
       const [selected] = qp.selectedItems;
-      if (selected && selected.revisionRef && selected.revisionKind) {
-        resolve({
-          ref: selected.revisionRef,
-          label: selected.label,
-          kind: selected.revisionKind
-        });
-      } else {
-        resolve(undefined);
-      }
-      qp.dispose();
+      qp.hide();
+      settle(selected?.revision);
     });
 
     qp.onDidHide(() => {
       if (debounceTimer !== undefined) {
         clearTimeout(debounceTimer);
+        debounceTimer = undefined;
       }
-      resolve(undefined);
       qp.dispose();
+      settle(undefined);
     });
 
     qp.show();

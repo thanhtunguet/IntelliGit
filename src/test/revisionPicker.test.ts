@@ -1,7 +1,11 @@
 import * as assert from 'assert';
 import { describe, it } from 'node:test';
+import * as vscode from 'vscode';
 import { isLikelyShaPrefix, buildRevisionPickerItems } from '../views/revisionPicker';
 import type { BranchRef, TagRef } from '../types';
+
+// The separator kind value — matches the vscode stub used in tests
+const SEPARATOR_KIND = vscode.QuickPickItemKind.Separator;
 
 // ── isLikelyShaPrefix ─────────────────────────────────────────────────────────
 
@@ -83,35 +87,37 @@ describe('buildRevisionPickerItems', () => {
     assert.deepStrictEqual(items, []);
   });
 
-  it('emits a Local Branches separator + items for local branches', () => {
+  it('emits a Local branches separator + icon-prefixed items for local branches', () => {
     const branches: BranchRef[] = [
       makeBranch({ name: 'main', type: 'local' }),
       makeBranch({ name: 'feature/foo', shortName: 'feature/foo', fullName: 'refs/heads/feature/foo', type: 'local' })
     ];
     const items = buildRevisionPickerItems(branches, []);
 
-    // First item is a separator
-    assert.strictEqual(items[0].label, 'Local Branches');
-    assert.ok((items[0] as { kind?: number }).kind !== undefined, 'separator must have kind set');
+    // First item is a separator with label 'Local branches'
+    assert.strictEqual(items[0].label, 'Local branches');
+    // Separator has kind set to vscode.QuickPickItemKind.Separator
+    assert.strictEqual((items[0] as { kind?: number }).kind, SEPARATOR_KIND);
 
-    // Then two branch items
-    assert.strictEqual(items[1].label, 'main');
-    assert.strictEqual(items[2].label, 'feature/foo');
+    // Then two branch items with icon prefix
+    assert.strictEqual(items[1].label, '$(git-branch) main');
+    assert.strictEqual(items[2].label, '$(git-branch) feature/foo');
     assert.strictEqual(items.length, 3);
   });
 
-  it('emits a Remote Branches separator + items for remote branches', () => {
+  it('emits a Remote branches separator + icon-prefixed items for remote branches', () => {
     const branches: BranchRef[] = [
       makeBranch({ name: 'origin/main', shortName: 'main', fullName: 'refs/remotes/origin/main', type: 'remote', remoteName: 'origin' })
     ];
     const items = buildRevisionPickerItems(branches, []);
 
-    assert.strictEqual(items[0].label, 'Remote Branches');
-    assert.strictEqual(items[1].label, 'origin/main');
+    assert.strictEqual(items[0].label, 'Remote branches');
+    assert.strictEqual((items[0] as { kind?: number }).kind, SEPARATOR_KIND);
+    assert.strictEqual(items[1].label, '$(cloud) origin/main');
     assert.strictEqual(items.length, 2);
   });
 
-  it('emits a Tags separator + items for tags', () => {
+  it('emits a Tags separator + icon-prefixed items for tags', () => {
     const tags: TagRef[] = [
       makeTag({ name: 'v1.0.0' }),
       makeTag({ name: 'v2.0.0', fullName: 'refs/tags/v2.0.0' })
@@ -119,8 +125,9 @@ describe('buildRevisionPickerItems', () => {
     const items = buildRevisionPickerItems([], tags);
 
     assert.strictEqual(items[0].label, 'Tags');
-    assert.strictEqual(items[1].label, 'v1.0.0');
-    assert.strictEqual(items[2].label, 'v2.0.0');
+    assert.strictEqual((items[0] as { kind?: number }).kind, SEPARATOR_KIND);
+    assert.strictEqual(items[1].label, '$(tag) v1.0.0');
+    assert.strictEqual(items[2].label, '$(tag) v2.0.0');
     assert.strictEqual(items.length, 3);
   });
 
@@ -132,7 +139,7 @@ describe('buildRevisionPickerItems', () => {
     // Should have exactly one separator (Tags) + one item — no Local/Remote separators
     assert.strictEqual(items.length, 2);
     assert.strictEqual(items[0].label, 'Tags');
-    assert.strictEqual(items[1].label, 'v1.0.0');
+    assert.strictEqual(items[1].label, '$(tag) v1.0.0');
   });
 
   it('emits all three sections when all groups are non-empty, in correct order', () => {
@@ -144,12 +151,12 @@ describe('buildRevisionPickerItems', () => {
 
     const items = buildRevisionPickerItems(branches, tags);
 
-    // Collect separator labels in order
+    // Collect separator labels in order — separators have kind === vscode.QuickPickItemKind.Separator
     const separatorLabels = items
-      .filter((item) => (item as { kind?: number }).kind !== undefined && (item as { kind?: number }).kind !== -1)
+      .filter((item) => (item as { kind?: number }).kind === SEPARATOR_KIND)
       .map((item) => item.label);
 
-    assert.deepStrictEqual(separatorLabels, ['Local Branches', 'Remote Branches', 'Tags']);
+    assert.deepStrictEqual(separatorLabels, ['Local branches', 'Remote branches', 'Tags']);
 
     // Total: 3 separators + 2 branches + 1 tag = 6
     assert.strictEqual(items.length, 6);
@@ -161,12 +168,12 @@ describe('buildRevisionPickerItems', () => {
     ];
     const items = buildRevisionPickerItems(branches, []);
 
-    const branchItem = items.find((item) => item.label === 'main');
-    assert.ok(branchItem !== undefined, 'expected to find main branch item');
+    const branchItem = items.find((item) => item.label === '$(git-branch) main');
+    assert.ok(branchItem !== undefined, 'expected to find main branch item with icon prefix');
     assert.strictEqual(branchItem.description, '(current)');
   });
 
-  it('revisionRef and revisionKind are set correctly for each kind', () => {
+  it('revision field is set correctly for each kind', () => {
     const branches: BranchRef[] = [
       makeBranch({ name: 'main', type: 'local' }),
       makeBranch({ name: 'origin/main', shortName: 'main', fullName: 'refs/remotes/origin/main', type: 'remote', remoteName: 'origin' })
@@ -175,16 +182,20 @@ describe('buildRevisionPickerItems', () => {
 
     const items = buildRevisionPickerItems(branches, tags);
 
-    const localItem = items.find((i) => i.label === 'main' && (i as { revisionKind?: string }).revisionKind === 'branch');
+    const localItem = items.find((i) => i.label === '$(git-branch) main');
     assert.ok(localItem !== undefined, 'local branch item not found');
-    assert.strictEqual((localItem as { revisionRef?: string }).revisionRef, 'main');
+    assert.ok((localItem as { revision?: { ref?: string; kind?: string } }).revision !== undefined, 'revision payload missing');
+    assert.strictEqual((localItem as { revision?: { ref?: string; kind?: string } }).revision!.ref, 'main');
+    assert.strictEqual((localItem as { revision?: { ref?: string; kind?: string } }).revision!.kind, 'branch');
 
-    const remoteItem = items.find((i) => (i as { revisionKind?: string }).revisionKind === 'remote');
+    const remoteItem = items.find((i) => i.label === '$(cloud) origin/main');
     assert.ok(remoteItem !== undefined, 'remote branch item not found');
-    assert.strictEqual((remoteItem as { revisionRef?: string }).revisionRef, 'origin/main');
+    assert.strictEqual((remoteItem as { revision?: { ref?: string; kind?: string } }).revision!.ref, 'origin/main');
+    assert.strictEqual((remoteItem as { revision?: { ref?: string; kind?: string } }).revision!.kind, 'remote');
 
-    const tagItem = items.find((i) => (i as { revisionKind?: string }).revisionKind === 'tag');
+    const tagItem = items.find((i) => i.label === '$(tag) v1.0.0');
     assert.ok(tagItem !== undefined, 'tag item not found');
-    assert.strictEqual((tagItem as { revisionRef?: string }).revisionRef, 'v1.0.0');
+    assert.strictEqual((tagItem as { revision?: { ref?: string; kind?: string } }).revision!.ref, 'v1.0.0');
+    assert.strictEqual((tagItem as { revision?: { ref?: string; kind?: string } }).revision!.kind, 'tag');
   });
 });
