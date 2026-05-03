@@ -390,6 +390,14 @@
         "title": "Open File History"
       },
       {
+        "command": "intelliGit.compareWithRevision",
+        "title": "Compare with Revision…"
+      },
+      {
+        "command": "intelliGit.workingTreeCompare.openFileDiff",
+        "title": "Open Working-Tree Compare File Diff"
+      },
+      {
         "command": "intelliGit.fileBlame.open",
         "title": "Open File Blame"
       },
@@ -901,11 +909,24 @@
           "command": "intelliGit.fileHistory.open",
           "when": "explorerResourceIsFolder == false && resourceScheme == file",
           "group": "navigation@9"
+        },
+        {
+          "command": "intelliGit.compareWithRevision",
+          "when": "resourceScheme == file",
+          "group": "navigation@10"
         }
       ],
       "commandPalette": [
         {
           "command": "intelliGit.fileHistory.open",
+          "when": "false"
+        },
+        {
+          "command": "intelliGit.compareWithRevision",
+          "when": "false"
+        },
+        {
+          "command": "intelliGit.workingTreeCompare.openFileDiff",
           "when": "false"
         }
       ]
