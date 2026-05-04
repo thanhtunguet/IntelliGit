@@ -1681,6 +1681,14 @@ export class CommandController {
       await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(fullPath), { forceNewWindow: true });
     });
 
+    register('intelliGit.submodule.openTerminal', async (arg?: unknown) => {
+      const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
+      if (!item) { return; }
+      const fullPath = `${this.git.gitRoot}/${item.submodule.path}`;
+      const terminal = vscode.window.createTerminal({ cwd: fullPath, name: `Submodule: ${item.submodule.name}` });
+      terminal.show();
+    });
+
     register('intelliGit.submodule.checkoutRecorded', async (arg?: unknown) => {
       const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
       if (!item) { return; }

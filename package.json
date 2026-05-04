@@ -503,8 +503,12 @@
       },
       {
         "command": "intelliGit.submodule.openInNewWindow",
-        "title": "Open Submodule in New Window",
+        "title": "Open in a New Window",
         "icon": "$(empty-window)"
+      },
+      {
+        "command": "intelliGit.submodule.openTerminal",
+        "title": "Open in a New Terminal"
       },
       {
         "command": "intelliGit.submodule.checkoutRecorded",
@@ -843,6 +847,11 @@
           "command": "intelliGit.submodule.openInNewWindow",
           "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
           "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.submodule.openTerminal",
+          "when": "view == intelliGit.submodules && viewItem =~ /submoduleEntry/",
+          "group": "navigation@3"
         },
         {
           "command": "intelliGit.submodule.init",
