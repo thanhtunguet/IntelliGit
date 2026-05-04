@@ -109,18 +109,40 @@
       flex: 1;
     }
     {{> partials/styles/tableBase cellPadding="5px 6px"}}
-    col.col-graph  { width: 24px; }
+    col.col-graph  { width: 42px; }
     col.col-author { width: 130px; }
     col.col-date   { width: 112px; }
     .col-graph {
       font-family: var(--vscode-editor-font-family);
-      text-align: center;
+      text-align: left;
       color: var(--muted);
       user-select: none;
       cursor: pointer;
-      width: 24px;
+      width: 42px;
+      white-space: nowrap;
     }
     .col-graph:hover { color: var(--fg); }
+    .commit-leading-icons {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding-left: 2px;
+    }
+    .commit-node-icon {
+      color: var(--vscode-charts-blue, var(--muted));
+      font-size: 11px;
+      line-height: 1;
+    }
+    .disclosure-icon {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1;
+      width: 10px;
+      text-align: center;
+    }
+    .commit-row.expanded .disclosure-icon {
+      color: var(--fg);
+    }
     .col-subject {
       overflow: hidden;
       text-overflow: ellipsis;
@@ -389,11 +411,9 @@
       return Number.isFinite(timestamp) ? timestamp : undefined;
     }
 
-    function renderGraphGlyph(graph) {
-      if (graph === '<') { return '◀'; }
-      if (graph === '>') { return '▶'; }
-      if (graph === '-') { return '●'; }
-      return '○';
+    function renderLeadingIcons(expanded) {
+      const disclosure = expanded ? '▾' : '▸';
+      return '<span class="commit-leading-icons" aria-hidden="true"><span class="commit-node-icon">●</span><span class="disclosure-icon">' + disclosure + '</span></span>';
     }
 
     function buildFileTree(files) {
@@ -503,12 +523,12 @@
         const rawSha = String(commit.sha || '');
         const subject = escapeHtml(commit.subject || '');
         const author = escapeHtml(commit.author || '');
-        const graph = escapeHtml(renderGraphGlyph(commit.graph));
         const timestamp = Number(commit.dateTimestamp || 0);
         const full = escapeHtml(commit.dateTitle || '');
         const dateText = escapeHtml(commit.dateLabel || '');
         const expanded = expandedSha === rawSha;
-        const row = '<tr class="commit-row' + (expanded ? ' expanded' : '') + '" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
+        const leadingIcons = renderLeadingIcons(expanded);
+        const row = '<tr class="commit-row' + (expanded ? ' expanded' : '') + '" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + leadingIcons + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
         if (!expanded) {
           return row;
         }

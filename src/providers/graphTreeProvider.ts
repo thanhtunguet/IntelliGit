@@ -5,8 +5,7 @@ import { GraphCommit } from '../types';
 
 export class GraphCommitTreeItem extends vscode.TreeItem {
   constructor(public readonly commit: GraphCommit) {
-    const graphGlyph = commit.graph === '<' ? '◀' : commit.graph === '>' ? '▶' : commit.graph === '-' ? '●' : '○';
-    super(`${graphGlyph} ${commit.shortSha} ${commit.subject}`, vscode.TreeItemCollapsibleState.Collapsed);
+    super(`${commit.shortSha} ${commit.subject}`, vscode.TreeItemCollapsibleState.Collapsed);
     this.contextValue = 'graphCommit';
     this.id = `commit:${commit.sha}`;
     this.description = [commit.author, new Date(commit.date).toLocaleString()].join(' · ');
