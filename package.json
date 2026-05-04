@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "IntelliGit Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows, inspired by IntelliJ Git integration.",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "publisher": "thanhtunguet",
   "icon": "media/intelligit.png",
   "main": "./dist/extension.js",
@@ -453,7 +453,8 @@
       },
       {
         "command": "intelliGit.worktree.prune",
-        "title": "Prune Stale Worktrees"
+        "title": "Prune Stale Worktrees",
+        "icon": "$(trash)"
       },
       {
         "command": "intelliGit.worktree.revealInFinder",
@@ -474,8 +475,7 @@
       },
       {
         "command": "intelliGit.submodule.initAll",
-        "title": "Init All Submodules",
-        "icon": "$(add)"
+        "title": "Init All Submodules"
       },
       {
         "command": "intelliGit.submodule.update",
@@ -578,31 +578,6 @@
           "group": "navigation"
         },
         {
-          "command": "intelliGit.quickActions",
-          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph || view == intelliGit.worktrees || view == intelliGit.submodules",
-          "group": "navigation@1"
-        },
-        {
-          "command": "intelliGit.branch.search",
-          "when": "view == intelliGit.branches",
-          "group": "navigation@2"
-        },
-        {
-          "command": "intelliGit.graph.filter",
-          "when": "view == intelliGit.graph",
-          "group": "navigation@2"
-        },
-        {
-          "command": "intelliGit.graph.clearFilter",
-          "when": "view == intelliGit.graph && intelliGit.graphFilterActive",
-          "group": "navigation@3"
-        },
-        {
-          "command": "intelliGit.worktree.refresh",
-          "when": "view == intelliGit.worktrees",
-          "group": "navigation"
-        },
-        {
           "command": "intelliGit.worktree.addFromBranch",
           "when": "view == intelliGit.worktrees",
           "group": "navigation@1"
@@ -613,11 +588,6 @@
           "group": "navigation@2"
         },
         {
-          "command": "intelliGit.submodule.refresh",
-          "when": "view == intelliGit.submodules",
-          "group": "navigation"
-        },
-        {
           "command": "intelliGit.submodule.initAll",
           "when": "view == intelliGit.submodules",
           "group": "navigation@1"
@@ -626,6 +596,26 @@
           "command": "intelliGit.submodule.updateAll",
           "when": "view == intelliGit.submodules && intelliGit.hasSubmodules",
           "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.branch.search",
+          "when": "view == intelliGit.branches",
+          "group": "navigation@8"
+        },
+        {
+          "command": "intelliGit.graph.filter",
+          "when": "view == intelliGit.graph",
+          "group": "navigation@8"
+        },
+        {
+          "command": "intelliGit.graph.clearFilter",
+          "when": "view == intelliGit.graph && intelliGit.graphFilterActive",
+          "group": "navigation@8.1"
+        },
+        {
+          "command": "intelliGit.quickActions",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph || view == intelliGit.worktrees || view == intelliGit.submodules",
+          "group": "navigation@9"
         }
       ],
       "view/item/context": [
