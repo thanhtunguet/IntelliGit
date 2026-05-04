@@ -8,6 +8,46 @@ IntelliGit is an IntelliJ-like Git client extension for VS Code focused on core 
 - **Repo Structure** (bottom panel): `Worktrees`, `Submodules`
 - **Editor**: Gutter change markers, side-by-side diff, 3-way merge editor, branch comparison
 
+## Inspiration & Motivation
+
+This extension was inspired by the Git client experience in IntelliJ IDEA and other IntelliJ-based IDEs.
+
+While working with those tools, I found their Git workflows to be incredibly smooth and powerful — especially when it comes to:
+
+* Comparing branches and revisions
+* Cherry-picking changes across branches
+* Navigating repository history in a flexible way
+
+After switching to Visual Studio Code, I realized that while the built-in Git integration is great for everyday tasks, some of these advanced workflows were either missing or required combining multiple extensions and external tools.
+
+That gap became the main motivation for this project.
+
+
+### Goals
+
+The goal of this extension is not to replace VSCode’s built-in Git, but to complement it by:
+
+* Bringing more advanced Git workflows into a single place
+* Reducing the need for multiple extensions or external tools
+* Keeping everything aligned with the VSCode ecosystem and APIs
+* Providing a smooth and intuitive developer experience
+
+
+### Feedback & Contributions
+
+This project is open-source and still evolving.
+
+If you:
+
+* Find bugs
+* Have feature ideas
+* Want to improve existing workflows
+
+Please feel free to open an issue on GitHub:
+👉 https://github.com/thanhtunguet/IntelliGit/issues
+
+Contributions and PRs are always welcome!
+
 ## Implemented Features
 
 ### Branches (Tree View)
@@ -171,33 +211,33 @@ IntelliGit integrates with VS Code's native Source Control panel:
 
 ## Architecture
 
-| Module | Purpose |
-|---|---|
-| `src/services/gitService.ts` | Native `git` CLI wrapper with typed methods, error normalisation, command logging |
-| `src/services/gitParsing.ts` | Output parsers for branches, stashes, log, status, blame |
-| `src/services/repositoryContext.ts` | Resolves the active Git repository root |
-| `src/services/submoduleService.ts` / `submoduleParsing.ts` | Submodule discovery and command wrappers |
-| `src/services/worktreeParsing.ts` | Worktree list parser |
-| `src/state/stateStore.ts` | Central cached state for branches/stashes/graph/compare; auto-refresh on `.git` file changes |
-| `src/state/changelistStore.ts` | Tracks selected changes in the Commit Details view |
-| `src/state/commitTemplates.ts` | Loads and resolves commit message templates |
-| `src/providers/branchTreeProvider.ts` | Branch (and tag) sidebar tree provider |
-| `src/providers/stashTreeProvider.ts` | Stash sidebar tree provider |
-| `src/providers/graphTreeProvider.ts` | Git Graph sidebar tree provider |
-| `src/providers/commitFilesTreeProvider.ts` | Commit Details sidebar tree provider |
-| `src/providers/commitFileDecorationProvider.ts` | File decoration badges in Commit Details view |
-| `src/providers/worktreeTreeProvider.ts` | Worktrees sidebar tree provider |
-| `src/providers/submoduleTreeProvider.ts` | Submodules sidebar tree provider |
-| `src/commands/commandController.ts` | Command registration, action orchestration, guardrails |
-| `src/editor/editorOrchestrator.ts` | Merge / diff / compare tab orchestration |
-| `src/editor/gutterDecorationController.ts` | Inline gutter change markers vs HEAD |
-| `src/editor/lineDiff.ts` | Line-level diff computation for gutter markers |
-| `src/editor/virtualGitContentProvider.ts` | Virtual document provider (`intelligit://`) for showing file content at a revision |
-| `src/views/compareView.ts` | Branch comparison webview UI |
-| `src/views/graphFilterView.ts` | Graph filter webview/input |
-| `src/views/branchSearchView.ts` | Branch search webview/input |
-| `src/views/commitActions.ts` | Shared context-menu actions for commits |
-| `src/views/templateRenderer.ts` | Handlebars-based template rendering for webviews |
+| Module                                                     | Purpose                                                                                      |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `src/services/gitService.ts`                               | Native `git` CLI wrapper with typed methods, error normalisation, command logging            |
+| `src/services/gitParsing.ts`                               | Output parsers for branches, stashes, log, status, blame                                     |
+| `src/services/repositoryContext.ts`                        | Resolves the active Git repository root                                                      |
+| `src/services/submoduleService.ts` / `submoduleParsing.ts` | Submodule discovery and command wrappers                                                     |
+| `src/services/worktreeParsing.ts`                          | Worktree list parser                                                                         |
+| `src/state/stateStore.ts`                                  | Central cached state for branches/stashes/graph/compare; auto-refresh on `.git` file changes |
+| `src/state/changelistStore.ts`                             | Tracks selected changes in the Commit Details view                                           |
+| `src/state/commitTemplates.ts`                             | Loads and resolves commit message templates                                                  |
+| `src/providers/branchTreeProvider.ts`                      | Branch (and tag) sidebar tree provider                                                       |
+| `src/providers/stashTreeProvider.ts`                       | Stash sidebar tree provider                                                                  |
+| `src/providers/graphTreeProvider.ts`                       | Git Graph sidebar tree provider                                                              |
+| `src/providers/commitFilesTreeProvider.ts`                 | Commit Details sidebar tree provider                                                         |
+| `src/providers/commitFileDecorationProvider.ts`            | File decoration badges in Commit Details view                                                |
+| `src/providers/worktreeTreeProvider.ts`                    | Worktrees sidebar tree provider                                                              |
+| `src/providers/submoduleTreeProvider.ts`                   | Submodules sidebar tree provider                                                             |
+| `src/commands/commandController.ts`                        | Command registration, action orchestration, guardrails                                       |
+| `src/editor/editorOrchestrator.ts`                         | Merge / diff / compare tab orchestration                                                     |
+| `src/editor/gutterDecorationController.ts`                 | Inline gutter change markers vs HEAD                                                         |
+| `src/editor/lineDiff.ts`                                   | Line-level diff computation for gutter markers                                               |
+| `src/editor/virtualGitContentProvider.ts`                  | Virtual document provider (`intelligit://`) for showing file content at a revision           |
+| `src/views/compareView.ts`                                 | Branch comparison webview UI                                                                 |
+| `src/views/graphFilterView.ts`                             | Graph filter webview/input                                                                   |
+| `src/views/branchSearchView.ts`                            | Branch search webview/input                                                                  |
+| `src/views/commitActions.ts`                               | Shared context-menu actions for commits                                                      |
+| `src/views/templateRenderer.ts`                            | Handlebars-based template rendering for webviews                                             |
 
 ## Available Commands
 
@@ -245,16 +285,16 @@ npm run compile
 
 ## Settings
 
-| Setting | Default | Description |
-|---|---|---|
-| `intelliGit.gitPath` | `"git"` | Git executable path |
-| `intelliGit.commandTimeoutMs` | `15000` | Timeout for Git commands (ms) |
-| `intelliGit.maxGraphCommits` | `200` | Maximum commits shown in Git Graph |
-| `intelliGit.recentBranchesCount` | `3` | Number of branches shown in the Recent group (1–10) |
-| `intelliGit.gutterMarkers.enabled` | `true` | Show inline gutter markers for lines added/modified/deleted vs HEAD |
-| `intelliGit.commitMessageTemplates` | *(see below)* | Reusable commit message templates. Each item: `{label, template}`. Placeholders: `{branch}`, `{ticket}`, `{scope}`, `{cursor}` |
-| `intelliGit.commitMessageTicketPattern` | `"[A-Z]+-\\d+"` | Regex to extract a ticket ID from the branch name for the `{ticket}` placeholder |
-| `intelliGit.aiGenerateTimeoutMs` | `5000` | Timeout (ms) for AI commit message generation |
+| Setting                                 | Default         | Description                                                                                                                    |
+| --------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `intelliGit.gitPath`                    | `"git"`         | Git executable path                                                                                                            |
+| `intelliGit.commandTimeoutMs`           | `15000`         | Timeout for Git commands (ms)                                                                                                  |
+| `intelliGit.maxGraphCommits`            | `200`           | Maximum commits shown in Git Graph                                                                                             |
+| `intelliGit.recentBranchesCount`        | `3`             | Number of branches shown in the Recent group (1–10)                                                                            |
+| `intelliGit.gutterMarkers.enabled`      | `true`          | Show inline gutter markers for lines added/modified/deleted vs HEAD                                                            |
+| `intelliGit.commitMessageTemplates`     | *(see below)*   | Reusable commit message templates. Each item: `{label, template}`. Placeholders: `{branch}`, `{ticket}`, `{scope}`, `{cursor}` |
+| `intelliGit.commitMessageTicketPattern` | `"[A-Z]+-\\d+"` | Regex to extract a ticket ID from the branch name for the `{ticket}` placeholder                                               |
+| `intelliGit.aiGenerateTimeoutMs`        | `5000`          | Timeout (ms) for AI commit message generation                                                                                  |
 
 **Default commit message templates:**
 
