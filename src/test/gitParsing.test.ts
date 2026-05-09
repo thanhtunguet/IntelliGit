@@ -22,7 +22,7 @@ describe('Git parsing utilities', () => {
   });
 
   it('parses NUL-separated porcelain status output', () => {
-    const raw = ' M src/changed.ts\0A  src/staged.ts\0?? src/new.ts\0R  src/old.ts\0src/new-name.ts\0';
+    const raw = ' M src/changed.ts\0A  src/staged.ts\0?? src/new.ts\0R  src/new-name.ts\0src/old.ts\0';
 
     assert.deepStrictEqual(parsePorcelainStatusZ(raw), [
       { status: ' M', path: 'src/changed.ts' },

@@ -90,11 +90,15 @@ export function parsePorcelainStatusZ(stdout: string): PorcelainStatusEntry[] {
     const statusCode = status.trim()[0]?.toUpperCase();
 
     if (statusCode === 'R' || statusCode === 'C') {
-      const newPath = tokens[index + 1];
-      if (!newPath) {
+      // `git status --porcelain=v1 -z` emits renames/copies as
+      // `XY <new>\0<old>\0` — the destination is in the status token,
+      // followed by the source in the next token. Keep `path` (new)
+      // and consume the trailing source token.
+      const origPath = tokens[index + 1];
+      if (!origPath) {
         break;
       }
-      entries.push({ status, path: newPath });
+      entries.push({ status, path });
       index += 1;
       continue;
     }
