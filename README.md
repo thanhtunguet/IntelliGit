@@ -8,6 +8,10 @@ IntelliGit is an IntelliJ-like Git client extension for VS Code focused on core 
 - **Repo Structure** (bottom panel): `Worktrees`, `Submodules`
 - **Editor**: Gutter change markers, side-by-side diff, 3-way merge editor, branch comparison
 
+![screen-overview](media/screenshot-overview.png)
+
+![screen-recording](media/screen-recording.gif)
+
 ## Inspiration & Motivation
 
 This extension was inspired by the Git client experience in IntelliJ IDEA and other IntelliJ-based IDEs.
@@ -287,22 +291,22 @@ npm run compile
 
 ## Settings
 
-| Setting                                 | Default         | Description                                                                                                                    |
-| --------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `intelliGit.gitPath`                    | `"git"`         | Git executable path                                                                                                            |
-| `intelliGit.commandTimeoutMs`           | `15000`         | Timeout for Git commands (ms)                                                                                                  |
-| `intelliGit.maxGraphCommits`            | `200`           | Maximum commits shown in Git Graph                                                                                             |
-| `intelliGit.recentBranchesCount`        | `3`             | Number of branches shown in the Recent group (1–10)                                                                            |
-| `intelliGit.gutterMarkers.enabled`      | `true`          | Show inline gutter markers for lines added/modified/deleted vs HEAD                                                            |
-| `intelliGit.gutterMarkers.maxFileSizeKb` | `512`           | Skip gutter marker computation for files larger than this size in KB                                                           |
-| `intelliGit.gutterMarkers.maxLineCount` | `10000`         | Skip gutter marker computation for files with more lines than this value                                                       |
-| `intelliGit.performance.logGitCommands` | `false`         | Log Git commands that take 500ms or longer to the IntelliGit output channel                                                    |
-| `intelliGit.performance.refreshDebounceMs` | `250`         | Debounce delay (ms) for `.git` watcher and repository-state change refreshes                                                   |
-| `intelliGit.performance.structureRefreshDebounceMs` | `250` | Debounce delay (ms) for worktree/submodule watcher refreshes                                                                    |
-| `intelliGit.performance.saveRefreshDebounceMs` | `150`     | Debounce delay (ms) for save-triggered changes refresh                                                                          |
-| `intelliGit.commitMessageTemplates`     | *(see below)*   | Reusable commit message templates. Each item: `{label, template}`. Placeholders: `{branch}`, `{ticket}`, `{scope}`, `{cursor}` |
-| `intelliGit.commitMessageTicketPattern` | `"[A-Z]+-\\d+"` | Regex to extract a ticket ID from the branch name for the `{ticket}` placeholder                                               |
-| `intelliGit.aiGenerateTimeoutMs`        | `5000`          | Timeout (ms) for AI commit message generation                                                                                  |
+| Setting                                             | Default         | Description                                                                                                                    |
+| --------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `intelliGit.gitPath`                                | `"git"`         | Git executable path                                                                                                            |
+| `intelliGit.commandTimeoutMs`                       | `15000`         | Timeout for Git commands (ms)                                                                                                  |
+| `intelliGit.maxGraphCommits`                        | `200`           | Maximum commits shown in Git Graph                                                                                             |
+| `intelliGit.recentBranchesCount`                    | `3`             | Number of branches shown in the Recent group (1–10)                                                                            |
+| `intelliGit.gutterMarkers.enabled`                  | `true`          | Show inline gutter markers for lines added/modified/deleted vs HEAD                                                            |
+| `intelliGit.gutterMarkers.maxFileSizeKb`            | `512`           | Skip gutter marker computation for files larger than this size in KB                                                           |
+| `intelliGit.gutterMarkers.maxLineCount`             | `10000`         | Skip gutter marker computation for files with more lines than this value                                                       |
+| `intelliGit.performance.logGitCommands`             | `false`         | Log Git commands that take 500ms or longer to the IntelliGit output channel                                                    |
+| `intelliGit.performance.refreshDebounceMs`          | `250`           | Debounce delay (ms) for `.git` watcher and repository-state change refreshes                                                   |
+| `intelliGit.performance.structureRefreshDebounceMs` | `250`           | Debounce delay (ms) for worktree/submodule watcher refreshes                                                                   |
+| `intelliGit.performance.saveRefreshDebounceMs`      | `150`           | Debounce delay (ms) for save-triggered changes refresh                                                                         |
+| `intelliGit.commitMessageTemplates`                 | *(see below)*   | Reusable commit message templates. Each item: `{label, template}`. Placeholders: `{branch}`, `{ticket}`, `{scope}`, `{cursor}` |
+| `intelliGit.commitMessageTicketPattern`             | `"[A-Z]+-\\d+"` | Regex to extract a ticket ID from the branch name for the `{ticket}` placeholder                                               |
+| `intelliGit.aiGenerateTimeoutMs`                    | `5000`          | Timeout (ms) for AI commit message generation                                                                                  |
 
 ## Performance Notes
 

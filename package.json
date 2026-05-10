@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "IntelliGit Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows, inspired by IntelliJ Git integration.",
-  "version": "0.15.4",
+  "version": "0.15.5",
   "publisher": "thanhtunguet",
   "icon": "media/intelligit.png",
   "main": "./dist/extension.js",
