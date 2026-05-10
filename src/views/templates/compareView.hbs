@@ -125,9 +125,16 @@
     .commit-row:hover {
       background: color-mix(in srgb, var(--accent), transparent 90%);
     }
+    .commit-row.selected {
+      background: color-mix(in srgb, var(--accent), transparent 82%);
+    }
     .commit-row:hover td.col-author,
     .commit-row:hover td.col-date {
       background: color-mix(in srgb, var(--accent), transparent 90%);
+    }
+    .commit-row.selected td.col-author,
+    .commit-row.selected td.col-date {
+      background: color-mix(in srgb, var(--accent), transparent 82%);
     }
   </style>
 </head>
@@ -181,6 +188,90 @@
 
     {{> partials/scripts/commitContextMenu}}
 
+    let selectionAnchorSha = null;
+
+    const getVisibleCommitRows = () =>
+      Array.from(document.querySelectorAll('.commit-row')).filter((row) => row.style.display !== 'none');
+    const getCommitSha = (row) => (row && row.getAttribute ? row.getAttribute('data-sha') || '' : '');
+    const isCommitRowSelected = (row) => Boolean(row && row.classList && row.classList.contains('selected'));
+    const setCommitRowSelected = (row, selected) => {
+      if (!row || !row.classList) { return; }
+      row.classList.toggle('selected', selected);
+      row.setAttribute('aria-selected', selected ? 'true' : 'false');
+    };
+    const clearCommitSelection = () => {
+      Array.from(document.querySelectorAll('.commit-row.selected')).forEach((row) => setCommitRowSelected(row, false));
+    };
+    const getSelectedCommitRows = () =>
+      Array.from(document.querySelectorAll('.commit-row.selected')).filter((row) => row.style.display !== 'none');
+    const getSelectedCommitShas = () =>
+      Array.from(new Set(getSelectedCommitRows().map((row) => getCommitSha(row)).filter(Boolean)));
+
+    const selectRange = (targetRow, additive) => {
+      const visibleRows = getVisibleCommitRows();
+      const targetSha = getCommitSha(targetRow);
+      const anchorIndex = visibleRows.findIndex((row) => getCommitSha(row) === selectionAnchorSha);
+      const targetIndex = visibleRows.findIndex((row) => getCommitSha(row) === targetSha);
+      if (targetIndex < 0) {
+        return;
+      }
+      if (anchorIndex < 0) {
+        if (!additive) {
+          clearCommitSelection();
+        }
+        setCommitRowSelected(targetRow, true);
+        selectionAnchorSha = targetSha || selectionAnchorSha;
+        return;
+      }
+      const from = Math.min(anchorIndex, targetIndex);
+      const to = Math.max(anchorIndex, targetIndex);
+      if (!additive) {
+        clearCommitSelection();
+      }
+      for (let index = from; index <= to; index += 1) {
+        setCommitRowSelected(visibleRows[index], true);
+      }
+    };
+
+    const updateSelection = (row, event, options = {}) => {
+      if (!row) {
+        return;
+      }
+      const forContextMenu = Boolean(options.forContextMenu);
+      const toggle = Boolean(event && (event.ctrlKey || event.metaKey));
+      const range = Boolean(event && event.shiftKey);
+      const sha = getCommitSha(row);
+
+      if (range) {
+        selectRange(row, toggle);
+        if (sha) {
+          selectionAnchorSha = sha;
+        }
+        return;
+      }
+
+      if (toggle) {
+        setCommitRowSelected(row, !isCommitRowSelected(row));
+        if (sha) {
+          selectionAnchorSha = sha;
+        }
+        return;
+      }
+
+      if (forContextMenu && isCommitRowSelected(row)) {
+        if (sha) {
+          selectionAnchorSha = sha;
+        }
+        return;
+      }
+
+      clearCommitSelection();
+      setCommitRowSelected(row, true);
+      if (sha) {
+        selectionAnchorSha = sha;
+      }
+    };
+
     document.addEventListener('click', (event) => {
       if (commitContextMenu.isVisible()) {
         if (!commitContextMenu.contains(event.target)) { commitContextMenu.close(); }
@@ -191,6 +282,11 @@
       const sha = row.getAttribute('data-sha') || '';
       const subject = row.getAttribute('data-subject') || '';
       if (!sha) { return; }
+      const hasMultiModifier = event.shiftKey || event.ctrlKey || event.metaKey;
+      updateSelection(row, event);
+      if (hasMultiModifier) {
+        return;
+      }
       const graphCell = event.target && event.target.closest ? event.target.closest('.col-graph.copyable') : null;
       if (graphCell) {
         event.stopPropagation();
@@ -206,6 +302,8 @@
         commitContextMenu.close();
         return;
       }
+      updateSelection(row, event, { forContextMenu: true });
+      row._intelliGitSelectedShas = getSelectedCommitShas();
       commitContextMenu.openForRow(event, row);
     });
 

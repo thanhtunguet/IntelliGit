@@ -7,7 +7,7 @@ import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
 import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
 import { CommitFilesTreeProvider } from './providers/commitFilesTreeProvider';
-import { GraphTreeProvider } from './providers/graphTreeProvider';
+import { GraphCommitTreeItem, GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
 import { WorktreeTreeProvider } from './providers/worktreeTreeProvider';
 import { SubmoduleTreeProvider } from './providers/submoduleTreeProvider';
@@ -41,6 +41,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewVisible', false);
   await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewCanRevertSelected', false);
   await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewCanCherryPickSelected', false);
+  await vscode.commands.executeCommand('setContext', 'intelliGit.graphMultiCommitSelection', false);
 
   const configuration = vscode.workspace.getConfiguration('intelliGit');
 
@@ -117,6 +118,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesProvider);
 
   const gutterController = new GutterDecorationController(gitService, stateStore, logger);
+
+  if (graphView) {
+    context.subscriptions.push(
+      graphView.onDidChangeSelection((event) => {
+        const selectedCommitCount = event.selection.filter(
+          (item): item is GraphCommitTreeItem => item instanceof GraphCommitTreeItem
+        ).length;
+        void vscode.commands.executeCommand(
+          'setContext',
+          'intelliGit.graphMultiCommitSelection',
+          selectedCommitCount > 1
+        );
+      })
+    );
+  }
 
   context.subscriptions.push(
     ...[

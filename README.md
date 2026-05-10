@@ -115,6 +115,7 @@ Commit list with graph-like glyph, refs, author, date, and message. Each commit 
 - Create patch from commit
 - Open file at revision
 - Show repository at revision
+- Multi-select commits with `Shift` / `Ctrl` / `Cmd` for batch-capable context-menu actions (unsupported actions are disabled)
 
 **Graph filters (toolbar):**
 - branch/ref
@@ -200,6 +201,7 @@ IntelliGit integrates with VS Code's native Source Control panel:
 **Branch comparison tab:**
 - Dedicated webview for `A..B` / `B..A` commit and changed-file summaries
 - Drill down into file-level diff
+- Multi-select commits with `Shift` / `Ctrl` / `Cmd`; context menu enables only actions that support batch execution
 - Recent compare pairs persisted in workspace state
 
 ### Cross-cutting Features

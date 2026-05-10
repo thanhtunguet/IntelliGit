@@ -19,27 +19,44 @@ export interface CommitActionMessage {
   readonly type: 'commitAction';
   readonly action: CommitAction;
   readonly sha: string;
+  readonly shas?: readonly string[];
 }
 
 export async function handleCommitAction(message: CommitActionMessage): Promise<void> {
-  const sha = message.sha.trim();
+  const normalizedShas = Array.from(
+    new Set(
+      (Array.isArray(message.shas) ? message.shas : [message.sha])
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter(Boolean)
+    )
+  );
+  const [sha] = normalizedShas;
   if (!sha) {
     return;
   }
 
+  const runForEachSha = async (command: string) => {
+    for (const item of normalizedShas) {
+      await vscode.commands.executeCommand(command, item);
+    }
+  };
+
   switch (message.action) {
     case 'openDetails':
-      await vscode.commands.executeCommand('intelliGit.graph.openDetails', sha);
+      await runForEachSha('intelliGit.graph.openDetails');
       return;
     case 'copyRevisionNumber':
-      await vscode.env.clipboard.writeText(sha);
-      void vscode.window.setStatusBarMessage(`Copied ${sha}`, 1500);
+      await vscode.env.clipboard.writeText(normalizedShas.join('\n'));
+      void vscode.window.setStatusBarMessage(
+        normalizedShas.length > 1 ? `Copied ${normalizedShas.length} revisions` : `Copied ${sha}`,
+        1500
+      );
       return;
     case 'createPatch':
-      await vscode.commands.executeCommand('intelliGit.graph.createPatch', sha);
+      await runForEachSha('intelliGit.graph.createPatch');
       return;
     case 'cherryPick':
-      await vscode.commands.executeCommand('intelliGit.graph.cherryPick', sha);
+      await runForEachSha('intelliGit.graph.cherryPick');
       return;
     case 'checkoutRevision':
       await vscode.commands.executeCommand('intelliGit.graph.checkoutCommit', sha);
@@ -54,7 +71,7 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
       await vscode.commands.executeCommand('intelliGit.branch.resetCurrentToCommit', sha);
       return;
     case 'revertCommit':
-      await vscode.commands.executeCommand('intelliGit.graph.revert', sha);
+      await runForEachSha('intelliGit.graph.revert');
       return;
     case 'interactiveRebaseFromHere':
       await vscode.commands.executeCommand('intelliGit.graph.rebaseInteractiveFromHere', sha);
@@ -79,5 +96,11 @@ export function isCommitActionMessage(value: unknown): value is CommitActionMess
   }
 
   const candidate = value as Record<string, unknown>;
-  return candidate.type === 'commitAction' && typeof candidate.action === 'string' && typeof candidate.sha === 'string';
+  const hasValidShas =
+    candidate.shas === undefined ||
+    (Array.isArray(candidate.shas) && candidate.shas.every((item) => typeof item === 'string'));
+  return candidate.type === 'commitAction'
+    && typeof candidate.action === 'string'
+    && typeof candidate.sha === 'string'
+    && hasValidShas;
 }

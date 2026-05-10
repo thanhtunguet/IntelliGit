@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 ### Changed
 - **Submodule view toolbar** — "Init All Submodules" button now renders as a refresh icon (`$(refresh)`) instead of a text label, consistent with other icon-only toolbar actions.
 - **Activation events** — removed four redundant `onView` entries (`intelliGit.commitView`, `intelliGit.graph`, `intelliGit.worktrees`, `intelliGit.submodules`) from `package.json`. VS Code fires these simultaneously with `intelliGit.branches` when the IntelliGit panel opens, so only one is needed; `intelliGit.commitView` was dead code because the view requires the `intelliGit.commitViewVisible` context which is only set inside `activate()`.
+- **Commit multi-select across graph surfaces** — Filter Graph, Compare Branches, and shared commit-list webviews now support `Shift`/`Ctrl`/`Cmd` multi-selection; their commit context menu keeps existing options but disables actions that do not support batch execution. Git Graph tree context menu now also disables single-commit-only actions during multi-selection, while batch-capable actions apply to all selected commits.
 
 ### Fixed (Windows performance)
 - **Watcher strategy simplification** — removed `.git/*`, worktree/submodule, and window-focus auto-refresh watchers from `stateStore.ts`; IntelliGit now relies on VS Code Git repository-state events and save-triggered updates to avoid watcher-driven refresh storms.

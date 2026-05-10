@@ -165,6 +165,18 @@ export class CommandController {
       const tag = asTagItem(value)?.tag;
       return asGraphItem(value)?.commit.sha ?? tag?.sha ?? tag?.name;
     };
+    const toGraphCommitShas = (arg: unknown, selectedArg: unknown): string[] => {
+      const selectedItems = Array.isArray(selectedArg) ? selectedArg : [];
+      const fromSelected = selectedItems
+        .map((item) => asGraphItem(item)?.commit.sha ?? toCommitSha(item))
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter((value): value is string => Boolean(value));
+      if (fromSelected.length > 0) {
+        return [...new Set(fromSelected)];
+      }
+      const primary = toCommitSha(arg);
+      return primary ? [primary] : [];
+    };
     const toTagRef = (value: unknown): string | undefined => asTagItem(value)?.tag.name;
     const toTagRevision = (value: unknown): string | undefined => {
       const tag = asTagItem(value)?.tag;
@@ -607,30 +619,36 @@ export class CommandController {
       await vscode.window.showTextDocument(doc, { preview: false });
     });
 
-    register('intelliGit.graph.openDetails', async (arg?: unknown) => {
-      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit for details'));
-      if (!sha) {
-        return;
+    register('intelliGit.graph.openDetails', async (arg?: unknown, selected?: unknown) => {
+      const selectedShas = toGraphCommitShas(arg, selected);
+      if (selectedShas.length === 0) {
+        const picked = await this.pickCommitSha('Pick commit for details');
+        if (!picked) {
+          return;
+        }
+        selectedShas.push(picked);
       }
 
-      const details = await this.git.getCommitDetails(sha);
-      const content = [
-        `# ${details.commit.shortSha} ${details.commit.subject}`,
-        '',
-        `- Author: ${details.commit.author}`,
-        `- Date: ${new Date(details.commit.date).toLocaleString()}`,
-        `- Commit: ${details.commit.sha}`,
-        `- Parents: ${details.commit.parents.join(', ') || 'none'}`,
-        '',
-        '## Message',
-        details.body,
-        '',
-        '## Changed Files',
-        ...details.changedFiles.map((file) => `- ${file.status} ${file.path}`)
-      ].join('\n');
+      for (const sha of selectedShas) {
+        const details = await this.git.getCommitDetails(sha);
+        const content = [
+          `# ${details.commit.shortSha} ${details.commit.subject}`,
+          '',
+          `- Author: ${details.commit.author}`,
+          `- Date: ${new Date(details.commit.date).toLocaleString()}`,
+          `- Commit: ${details.commit.sha}`,
+          `- Parents: ${details.commit.parents.join(', ') || 'none'}`,
+          '',
+          '## Message',
+          details.body,
+          '',
+          '## Changed Files',
+          ...details.changedFiles.map((file) => `- ${file.status} ${file.path}`)
+        ].join('\n');
 
-      const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
-      await vscode.window.showTextDocument(doc, { preview: false });
+        const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
+        await vscode.window.showTextDocument(doc, { preview: false });
+      }
     });
 
     register('intelliGit.graph.openFileDiff', async (arg?: unknown) => {
@@ -729,13 +747,19 @@ export class CommandController {
       void vscode.window.showInformationMessage(`Created tag ${name.trim()} at ${sha.slice(0, 8)}.`);
     });
 
-    register('intelliGit.graph.cherryPick', async (arg?: unknown) => {
-      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to cherry-pick'));
-      if (!sha) {
-        return;
+    register('intelliGit.graph.cherryPick', async (arg?: unknown, selected?: unknown) => {
+      const selectedShas = toGraphCommitShas(arg, selected);
+      if (selectedShas.length === 0) {
+        const picked = await this.pickCommitSha('Pick commit to cherry-pick');
+        if (!picked) {
+          return;
+        }
+        selectedShas.push(picked);
       }
 
-      await this.git.cherryPick(sha);
+      for (const sha of selectedShas) {
+        await this.git.cherryPick(sha);
+      }
       await this.state.refreshAll();
     });
 
@@ -762,13 +786,19 @@ export class CommandController {
       await this.state.refreshAll();
     });
 
-    register('intelliGit.graph.revert', async (arg?: unknown) => {
-      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to revert'));
-      if (!sha) {
-        return;
+    register('intelliGit.graph.revert', async (arg?: unknown, selected?: unknown) => {
+      const selectedShas = toGraphCommitShas(arg, selected);
+      if (selectedShas.length === 0) {
+        const picked = await this.pickCommitSha('Pick commit to revert');
+        if (!picked) {
+          return;
+        }
+        selectedShas.push(picked);
       }
 
-      await this.git.revertCommit(sha);
+      for (const sha of selectedShas) {
+        await this.git.revertCommit(sha);
+      }
       await this.state.refreshAll();
     });
 

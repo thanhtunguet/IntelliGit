@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "IntelliGit Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows, inspired by IntelliJ Git integration.",
-  "version": "0.15.6",
+  "version": "0.16.0",
   "publisher": "thanhtunguet",
   "icon": "media/intelligit.png",
   "main": "./dist/extension.js",
@@ -229,11 +229,13 @@
       },
       {
         "command": "intelliGit.graph.checkoutCommit",
-        "title": "Checkout Commit"
+        "title": "Checkout Commit",
+        "enablement": "!intelliGit.graphMultiCommitSelection"
       },
       {
         "command": "intelliGit.graph.createBranchHere",
-        "title": "Create Branch At Commit"
+        "title": "Create Branch At Commit",
+        "enablement": "!intelliGit.graphMultiCommitSelection"
       },
       {
         "command": "intelliGit.graph.createTagHere",
@@ -257,7 +259,8 @@
       },
       {
         "command": "intelliGit.graph.compareWithCurrent",
-        "title": "Compare Commit With Current"
+        "title": "Compare Commit With Current",
+        "enablement": "!intelliGit.graphMultiCommitSelection"
       },
       {
         "command": "intelliGit.graph.createPatch",

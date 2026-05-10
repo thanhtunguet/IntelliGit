@@ -1,14 +1,53 @@
     const commitContextMenu = (() => {
       const menu = document.getElementById('commit-context-menu');
-      let selectedCommit = null;
+      const menuItems = Array.from(menu.querySelectorAll('.menu-item[data-action]'));
+      const initiallyDisabled = new Set(
+        menuItems
+          .filter((item) => item.disabled)
+          .map((item) => item.getAttribute('data-action') || '')
+          .filter(Boolean)
+      );
+      const multiSelectActions = new Set([
+        'openDetails',
+        'copyRevisionNumber',
+        'createPatch',
+        'cherryPick',
+        'revertCommit'
+      ]);
+      let selectedShas = [];
+
+      const normalizeShas = (rawValues) =>
+        Array.from(new Set((Array.isArray(rawValues) ? rawValues : [])
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter(Boolean)));
+
+      const applyActionAvailability = () => {
+        const isMulti = selectedShas.length > 1;
+        menuItems.forEach((item) => {
+          const action = item.getAttribute('data-action') || '';
+          if (!action) {
+            return;
+          }
+          if (initiallyDisabled.has(action)) {
+            item.disabled = true;
+            return;
+          }
+          item.disabled = isMulti && !multiSelectActions.has(action);
+        });
+      };
 
       const close = () => {
         menu.classList.remove('visible');
-        selectedCommit = null;
+        selectedShas = [];
+        applyActionAvailability();
       };
 
       const open = (x, y, payload) => {
-        selectedCommit = payload;
+        selectedShas = normalizeShas(payload && payload.shas);
+        if (selectedShas.length === 0) {
+          return;
+        }
+        applyActionAvailability();
         menu.style.left = '0px';
         menu.style.top = '0px';
         menu.classList.add('visible');
@@ -25,11 +64,15 @@
 
       const openForRow = (event, row) => {
         event.preventDefault();
-        const sha = row.getAttribute('data-sha') || '';
-        if (!sha) {
+        const payloadShas = normalizeShas(row && row._intelliGitSelectedShas);
+        if (payloadShas.length > 0) {
+          open(event.clientX, event.clientY, { shas: payloadShas });
           return;
         }
-        open(event.clientX, event.clientY, { sha });
+        const rowSha = row.getAttribute('data-sha') || '';
+        if (rowSha) {
+          open(event.clientX, event.clientY, { shas: [rowSha] });
+        }
       };
 
       const contains = (target) => menu.contains(target);
@@ -37,7 +80,7 @@
 
       menu.addEventListener('click', (event) => {
         const target = event.target && event.target.closest ? event.target.closest('.menu-item[data-action]') : null;
-        if (!target || target.disabled || !selectedCommit) {
+        if (!target || target.disabled || selectedShas.length === 0) {
           return;
         }
 
@@ -49,13 +92,15 @@
         vscode.postMessage({
           type: 'commitAction',
           action,
-          sha: selectedCommit.sha
+          sha: selectedShas[0],
+          shas: selectedShas
         });
         close();
       });
 
       window.addEventListener('blur', close);
       window.addEventListener('scroll', close, true);
+      applyActionAvailability();
 
       return { close, contains, isVisible, openForRow };
     })();
