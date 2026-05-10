@@ -131,6 +131,18 @@ export class StateStore {
 
   private async executeRefresh(requestedScopes: ReadonlySet<RefreshScope>): Promise<void> {
     if (!(await this.git.isRepo())) {
+      const hadState =
+        this._branches.length > 0 ||
+        this._tags.length > 0 ||
+        this._stashes.length > 0 ||
+        this._changes.length > 0 ||
+        this._graph.length > 0 ||
+        this._compareResult !== undefined ||
+        this._operationState.kind !== 'none' ||
+        this._conflicts.length > 0 ||
+        this._worktrees.length > 0 ||
+        this._submodules.length > 0;
+
       this._branches = [];
       this._tags = [];
       this._stashes = [];
@@ -141,11 +153,14 @@ export class StateStore {
       this._conflicts = [];
       this._worktrees = [];
       this._submodules = [];
-      this.emitter.fire();
+      if (hadState) {
+        this.emitter.fire();
+      }
       return;
     }
 
     const scopes = this.expandScopes(requestedScopes);
+    const previousFingerprint = this.createStateFingerprint(scopes);
     const updates: Array<Promise<void>> = [];
 
     if (scopes.has('refs')) {
@@ -168,7 +183,9 @@ export class StateStore {
     }
 
     await Promise.all(updates);
-    this.emitter.fire();
+    if (this.createStateFingerprint(scopes) !== previousFingerprint) {
+      this.emitter.fire();
+    }
   }
 
   async refreshBranches(): Promise<void> {
@@ -350,6 +367,31 @@ export class StateStore {
     }
 
     return scopes;
+  }
+
+  private createStateFingerprint(scopes: ReadonlySet<RefreshScope>): string {
+    const fingerprints: string[] = [];
+
+    if (scopes.has('refs')) {
+      fingerprints.push(`refs:${JSON.stringify({ branches: this._branches, tags: this._tags })}`);
+    }
+    if (scopes.has('stashes')) {
+      fingerprints.push(`stashes:${JSON.stringify(this._stashes)}`);
+    }
+    if (scopes.has('changes')) {
+      fingerprints.push(`changes:${JSON.stringify({ changes: this._changes, operation: this._operationState, conflicts: this._conflicts })}`);
+    }
+    if (scopes.has('graph')) {
+      fingerprints.push(`graph:${JSON.stringify(this._graph)}`);
+    }
+    if (scopes.has('worktrees')) {
+      fingerprints.push(`worktrees:${JSON.stringify(this._worktrees)}`);
+    }
+    if (scopes.has('submodules')) {
+      fingerprints.push(`submodules:${JSON.stringify(this._submodules)}`);
+    }
+
+    return fingerprints.join('|');
   }
 
   private pushComparePair(pair: ComparePair): void {

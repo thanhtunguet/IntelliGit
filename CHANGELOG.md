@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 - **Save-event debounce** — `onDidSaveTextDocument` in `extension.ts` now schedules `requestRefresh(['changes'], { delayMs: 150 })` instead of calling `refreshChanges()` immediately, coalescing rapid saves produced by format-on-save toolchains.
 - **Configurable refresh debouncing** — debounce delays are now configurable through `intelliGit.performance.refreshDebounceMs`, `intelliGit.performance.structureRefreshDebounceMs`, and `intelliGit.performance.saveRefreshDebounceMs`, so Windows-heavy repos can be tuned without code changes.
 - **SCM state feedback-loop prevention** — `GitService.getChangedFilesFromVsCodeGit()` no longer invokes `repository.status()` on every IntelliGit refresh cycle; this avoids re-triggering VS Code Git state-change events and prevents continuous reload churn in the default Source Control view.
+- **IntelliGit view churn reduction** — `StateStore.executeRefresh()` now emits tree-refresh events only when the refreshed slices actually changed, preventing continuous redraws in the IntelliGit container when watcher/repository-state events fire without data changes.
 
 ## [Unreleased] - 2026-04-18
 
