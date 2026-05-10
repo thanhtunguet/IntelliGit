@@ -305,7 +305,16 @@ npm run compile
 
 IntelliGit activates lazily when one of its views or commands is used. Refreshes are scoped to the visible surface where possible, so saving a file or returning focus to VS Code refreshes working-tree state without reloading branches, tags, stashes, worktrees, submodules, and graph data.
 
-On Windows, Git command execution is queued with lower concurrency to avoid process-startup pressure on the VS Code Extension Host. If a workspace still feels slow, enable `intelliGit.performance.logGitCommands` and inspect the IntelliGit output channel for slow Git operations.
+### Windows
+
+On Windows, Git command execution is queued with lower concurrency (2 vs 4 on macOS/Linux) to reduce `CreateProcess` pressure on the Extension Host. Additional mitigations applied in v0.15.4:
+
+- **Watcher debouncing** — worktree and submodule file watchers now use a 250 ms debounce (matching the main `.git` watcher). `ReadDirectoryChangesW` emits multiple events per logical change; without debouncing each event triggered an immediate `git` process spawn.
+- **Parallel operation-state detection** — `git` dir stat checks for rebase/merge/cherry-pick state now run in parallel (`Promise.all`), reducing 5 sequential file-system round-trips to 1 on the happy path.
+- **Gutter config caching** — gutter-marker size/line-count limits are cached at startup and refreshed only on `onDidChangeConfiguration`, removing per-keystroke `getConfiguration()` calls.
+- **Save debounce** — `onDidSaveTextDocument` uses a 150 ms delay to coalesce rapid saves (e.g. format-on-save chains).
+
+If a workspace still feels slow, enable `intelliGit.performance.logGitCommands` and inspect the IntelliGit output channel for slow Git operations. Adding the repository folder and `.git` directory to Windows Defender exclusions usually has the largest practical impact.
 
 **Default commit message templates:**
 

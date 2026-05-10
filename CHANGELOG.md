@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.15.4] - 2026-05-10
+
+### Changed
+- **Submodule view toolbar** — "Init All Submodules" button now renders as a refresh icon (`$(refresh)`) instead of a text label, consistent with other icon-only toolbar actions.
+- **Activation events** — removed four redundant `onView` entries (`intelliGit.commitView`, `intelliGit.graph`, `intelliGit.worktrees`, `intelliGit.submodules`) from `package.json`. VS Code fires these simultaneously with `intelliGit.branches` when the IntelliGit panel opens, so only one is needed; `intelliGit.commitView` was dead code because the view requires the `intelliGit.commitViewVisible` context which is only set inside `activate()`.
+
+### Fixed (Windows performance)
+- **Worktree & submodule watcher debounce** — `onWorktreeChange` and `onSubmoduleChange` callbacks in `stateStore.ts` now route through `requestRefresh(..., { delayMs: 250 })` instead of calling refresh immediately. On Windows, `ReadDirectoryChangesW` emits multiple events per logical file-system change; the missing debounce caused rapid-fire `git` process spawns after any worktree or submodule operation.
+- **Parallel operation-state detection** — `GitService.getOperationState()` now runs all five `.git` directory existence checks (`rebase-merge`, `rebase-apply`, `MERGE_HEAD`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`) in a single `Promise.all()` instead of sequentially. On the happy path (no active operation) this reduces 5 serial file-system round-trips to 1, cutting 50–250 ms of latency per change-refresh cycle on machines with Windows Defender active.
+- **Gutter-marker config caching** — `GutterDecorationController` now caches `gutterMarkers.maxLineCount` and `gutterMarkers.maxFileSizeKb` in constructor-initialised fields and refreshes them only when `onDidChangeConfiguration` fires. Previously `getConfiguration()` was called on every debounced gutter update (every 250 ms while typing).
+- **Save-event debounce** — `onDidSaveTextDocument` in `extension.ts` now schedules `requestRefresh(['changes'], { delayMs: 150 })` instead of calling `refreshChanges()` immediately, coalescing rapid saves produced by format-on-save toolchains.
+
 ## [Unreleased] - 2026-04-18
 
 ### Added
