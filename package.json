@@ -20,10 +20,6 @@
   "activationEvents": [
     "onView:intelliGit.stashes",
     "onView:intelliGit.branches",
-    "onView:intelliGit.graph",
-    "onView:intelliGit.commitView",
-    "onView:intelliGit.worktrees",
-    "onView:intelliGit.submodules",
     "onCommand:intelliGit.quickActions",
     "onCommand:intelliGit.branch.actionHub",
     "onCommand:intelliGit.fileHistory.open",
