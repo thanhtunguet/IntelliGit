@@ -1169,6 +1169,85 @@ export class CommandController {
       }
     });
 
+    register('intelliGit.graph.goToChildCommit', async (arg?: unknown) => {
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit'));
+      if (!sha) {
+        return;
+      }
+
+      const result = await this.git.runGit(['rev-list', '--children', '-n', '1', sha]);
+      const parts = result.stdout.trim().split(/\s+/).filter(Boolean);
+      const children = parts.slice(1);
+      if (children.length === 0) {
+        void vscode.window.showInformationMessage('This commit has no child commit.');
+        return;
+      }
+
+      let child = children[0];
+      if (children.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+          children.map((candidate) => ({ label: candidate })),
+          { title: `Pick child commit of ${sha.slice(0, 8)}` }
+        );
+        if (!picked) {
+          return;
+        }
+        child = picked.label;
+      }
+
+      const graphCommit = this.state.graph.find((commit) => commit.sha === child);
+      if (graphCommit) {
+        await vscode.commands.executeCommand('intelliGit.graph.openDetails', new GraphCommitTreeItem(graphCommit));
+      } else {
+        const subject = (await this.git.getCommitDetails(child)).commit.subject;
+        await this.commitFilesView.showCommit(child, subject);
+        const firstFile = this.commitFilesView.getAllFileItems()[0];
+        if (firstFile) {
+          await this.editor.openCommitFileDiffWithStatus(child, firstFile.filePath, firstFile.status);
+        }
+      }
+    });
+
+    register('intelliGit.graph.pushAllUpToHere', async (arg?: unknown) => {
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to push up to'));
+      if (!sha) {
+        return;
+      }
+
+      const current = (await this.git.runGit(['rev-parse', 'HEAD'])).stdout.trim();
+      if (current === sha) {
+        await vscode.commands.executeCommand('intelliGit.git.pushWithPreview');
+        return;
+      }
+
+      let isAncestor = true;
+      try {
+        await this.git.runGit(['merge-base', '--is-ancestor', sha, 'HEAD']);
+      } catch {
+        isAncestor = false;
+      }
+      if (!isAncestor) {
+        void vscode.window.showWarningMessage('Selected commit is not an ancestor of current HEAD.');
+        return;
+      }
+
+      const preview = await this.git.runGit(['log', '--oneline', `${sha}..HEAD`]);
+      const outgoingLines = preview.stdout.split('\n').map((line) => line.trim()).filter(Boolean);
+      const detailLines = outgoingLines.slice(0, 10).join('\n') || 'none';
+
+      const confirmed = await confirmDangerousAction({
+        title: `Push all up to ${sha.slice(0, 8)}`,
+        detail: `Commits to push:\n${detailLines}`,
+        acceptLabel: 'Push'
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      await this.git.push();
+      await this.state.refreshAll();
+    });
+
     register('intelliGit.graph.createPatch', async (arg?: unknown) => {
       const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to export patch'));
       if (!sha) {
