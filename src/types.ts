@@ -35,6 +35,7 @@ export interface TagRef {
   readonly name: string;
   readonly fullName: string;
   readonly sha?: string;
+  readonly availableOnRemotes?: string[];
   readonly lastCommitEpoch?: number;
   readonly comparison?: RefComparison;
 }

@@ -101,6 +101,7 @@ export class TagTreeItem extends vscode.TreeItem {
     this.contextValue = 'tagRef';
     this.id = `tag:${idScope}:${tag.fullName}`;
     this.tooltip = buildTagTooltip(tag);
+    this.description = describeTagRemotes(tag);
     this.iconPath = new vscode.ThemeIcon('tag');
     this.command = {
       title: 'Open Tag Commits',
@@ -352,7 +353,10 @@ function buildBranchTooltip(branch: BranchRef): string {
 }
 
 function buildTagTooltip(tag: TagRef): string {
+  const remoteLines = (tag.availableOnRemotes ?? []).map((remoteName) => `$(globe) Available on ${remoteName}`);
   const lines = [
+    ...remoteLines,
+    (tag.availableOnRemotes?.length ?? 0) === 0 ? 'Local only' : '',
     tag.name,
     tag.fullName,
     tag.sha ? `Revision: ${tag.sha}` : '',
@@ -360,6 +364,14 @@ function buildTagTooltip(tag: TagRef): string {
     formatComparison(tag.comparison)
   ];
   return lines.filter(Boolean).join('\n');
+}
+
+function describeTagRemotes(tag: TagRef): string {
+  const remotes = tag.availableOnRemotes ?? [];
+  if (remotes.length === 0) {
+    return '';
+  }
+  return remotes.map(() => '$(globe)').join(' ');
 }
 
 function formatComparison(comparison: BranchRef['comparison'] | TagRef['comparison']): string {
