@@ -166,6 +166,18 @@
         "icon": "$(search)"
       },
       {
+        "command": "intelliGit.remote.setUrl",
+        "title": "Change remote URL"
+      },
+      {
+        "command": "intelliGit.remote.changeUrl",
+        "title": "Change remote URL"
+      },
+      {
+        "command": "intelliGit.remote.setUrlMissing",
+        "title": "Set remote url"
+      },
+      {
         "command": "intelliGit.tag.checkoutNewBranch",
         "title": "Checkout New Branch"
       },
@@ -716,6 +728,16 @@
           "command": "intelliGit.tag.createPatch",
           "when": "view == intelliGit.branches && viewItem == tagRef",
           "group": "navigation@4"
+        },
+        {
+          "command": "intelliGit.remote.changeUrl",
+          "when": "view == intelliGit.branches && viewItem == branchRemoteGroup && intelliGit.remoteHasUrl",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.remote.setUrlMissing",
+          "when": "view == intelliGit.branches && viewItem == branchRemoteGroup && !intelliGit.remoteHasUrl",
+          "group": "navigation"
         },
         {
           "command": "intelliGit.stash.apply",

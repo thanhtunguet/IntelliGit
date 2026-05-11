@@ -26,7 +26,7 @@ class TagSectionNode extends vscode.TreeItem {
   }
 }
 
-class BranchRemoteNode extends vscode.TreeItem {
+export class BranchRemoteNode extends vscode.TreeItem {
   constructor(
     public readonly remoteName: string,
     public readonly branches: BranchRef[],

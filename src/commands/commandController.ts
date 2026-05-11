@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { EditorOrchestrator } from '../editor/editorOrchestrator';
 import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
-import { BranchTreeItem, TagTreeItem } from '../providers/branchTreeProvider';
+import { BranchRemoteNode, BranchTreeItem, TagTreeItem } from '../providers/branchTreeProvider';
 import {
   CommitActionContext,
   CommitFileTreeItem,
@@ -62,6 +62,7 @@ export class CommandController {
 
   register(context: vscode.ExtensionContext): void {
     const asBranchItem = (value: unknown): BranchTreeItem | undefined => (value instanceof BranchTreeItem ? value : undefined);
+    const asBranchRemoteItem = (value: unknown): BranchRemoteNode | undefined => (value instanceof BranchRemoteNode ? value : undefined);
     const asTagItem = (value: unknown): TagTreeItem | undefined => (value instanceof TagTreeItem ? value : undefined);
     const asStashItem = (value: unknown): StashTreeItem | undefined => (value instanceof StashTreeItem ? value : undefined);
     const asGraphItem = (value: unknown): GraphCommitTreeItem | undefined =>
@@ -429,6 +430,33 @@ export class CommandController {
       await this.state.refreshAll();
       void vscode.window.showInformationMessage(`Created tag ${name.trim()} at ${sha.slice(0, 8)}.`);
     });
+
+    const setRemoteUrlFromItem = async (arg?: unknown): Promise<void> => {
+      const remoteItem = asBranchRemoteItem(arg);
+      const remoteName = remoteItem?.remoteName;
+      if (!remoteName) {
+        return;
+      }
+
+      const currentUrl = remoteItem.branches.find((branch) => Boolean(branch.remoteUrl))?.remoteUrl;
+      const nextUrl = await vscode.window.showInputBox({
+        title: currentUrl ? `Change remote URL for ${remoteName}` : `Set remote URL for ${remoteName}`,
+        value: currentUrl ?? '',
+        placeHolder: 'https://github.com/org/repo.git',
+        validateInput: (value) => (value.trim() ? undefined : 'Remote URL is required')
+      });
+      if (!nextUrl) {
+        return;
+      }
+
+      await this.git.setRemoteUrl(remoteName, nextUrl.trim());
+      await this.state.refreshBranches();
+      void vscode.window.showInformationMessage(`Remote ${remoteName} URL updated.`);
+    };
+
+    register('intelliGit.remote.setUrl', setRemoteUrlFromItem);
+    register('intelliGit.remote.changeUrl', setRemoteUrlFromItem);
+    register('intelliGit.remote.setUrlMissing', setRemoteUrlFromItem);
 
     register('intelliGit.branch.rename', async (arg?: unknown) => {
       const from = toBranchName(arg) ?? (await this.pickBranchName('Pick branch to rename'));

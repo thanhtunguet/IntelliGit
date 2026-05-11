@@ -5,6 +5,7 @@ import { GutterDecorationController } from './editor/gutterDecorationController'
 import { VirtualGitContentProvider } from './editor/virtualGitContentProvider';
 import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
+import { BranchRemoteNode } from './providers/branchTreeProvider';
 import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
 import { CommitFilesTreeProvider } from './providers/commitFilesTreeProvider';
 import { GraphCommitTreeItem, GraphTreeProvider } from './providers/graphTreeProvider';
@@ -42,6 +43,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewCanRevertSelected', false);
   await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewCanCherryPickSelected', false);
   await vscode.commands.executeCommand('setContext', 'intelliGit.graphMultiCommitSelection', false);
+  await vscode.commands.executeCommand('setContext', 'intelliGit.remoteHasUrl', false);
 
   const configuration = vscode.workspace.getConfiguration('intelliGit');
 
@@ -131,6 +133,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           'intelliGit.graphMultiCommitSelection',
           selectedCommitCount > 1
         );
+      })
+    );
+  }
+
+  if (branchView) {
+    context.subscriptions.push(
+      branchView.onDidChangeSelection((event) => {
+        const selectedRemote = event.selection.find((item): item is BranchRemoteNode => item instanceof BranchRemoteNode);
+        const hasUrl = Boolean(selectedRemote?.branches.some((branch) => Boolean(branch.remoteUrl)));
+        void vscode.commands.executeCommand('setContext', 'intelliGit.remoteHasUrl', hasUrl);
       })
     );
   }
