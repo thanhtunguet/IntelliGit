@@ -165,6 +165,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   attachRefreshScopeVisibility(context, submoduleView, 'submodules', stateStore);
 
   stateStore.attachAutoRefresh(context);
+  attachCherryPickStatusBarActions(context, stateStore);
 
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(() => {
@@ -262,4 +263,39 @@ async function registerBranchActionHubInGitCheckout(
   } catch (error) {
     logger.warn(`Failed to register IntelliGit branch action hub: ${String(error)}`);
   }
+}
+
+function attachCherryPickStatusBarActions(
+  context: vscode.ExtensionContext,
+  stateStore: StateStore
+): void {
+  const continueItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 30);
+  continueItem.name = 'IntelliGit Cherry-pick Continue';
+  continueItem.command = 'intelliGit.operation.continue';
+  continueItem.text = '$(check) Continue';
+  continueItem.tooltip = 'Continue cherry-pick after resolving conflicts';
+
+  const abortItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 29);
+  abortItem.name = 'IntelliGit Cherry-pick Abort';
+  abortItem.command = 'intelliGit.operation.abort';
+  abortItem.text = '$(close) Abort';
+  abortItem.tooltip = 'Abort current cherry-pick operation';
+
+  const update = () => {
+    const isCherryPickActive = stateStore.operationState.kind === 'cherry-pick';
+    if (isCherryPickActive) {
+      continueItem.show();
+      abortItem.show();
+      return;
+    }
+    continueItem.hide();
+    abortItem.hide();
+  };
+
+  update();
+  context.subscriptions.push(
+    continueItem,
+    abortItem,
+    stateStore.onDidChange(update)
+  );
 }

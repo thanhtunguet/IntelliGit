@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 - **Cherry-pick commit notifications** — `intelliGit.graph.cherryPick` now reports explicit outcomes similar to IntelliJ-style feedback: success, conflict (with resolve + Continue/Abort guidance), failure, and nothing-to-cherry-pick (already applied/empty), including multi-commit summary handling.
+- **Cherry-pick conflict workflow** — when cherry-pick hits conflicts (including `unmerged files` states), IntelliGit now shows a dedicated conflict warning, auto-opens conflict files in merge editors when possible, falls back to opening SCM for unresolved listing, and surfaces bottom status-bar actions for `Continue` / `Abort` while a cherry-pick is active.
 - **Git Graph commit details action** — `Open Commit Details` from the Git Graph tree no longer opens an ad-hoc markdown text document; it now loads the Commit Details sidebar and immediately opens the first changed file diff.
 - **Removed custom file-history action** — dropped `intelliGit.fileHistory.open` from command registration and Explorer context menu because VS Code Timeline already covers file/folder history workflows.
 - **Git Graph commit-row labeling** — commit rows in Git Graph now keep the title focused on the subject and move a 7-character commit hash into trailing metadata.

@@ -108,6 +108,7 @@ Commit list with graph-like glyph, refs, author/date metadata, subject-first tit
 - Create tag at commit
 - Cherry-pick commit
 - Cherry-pick feedback states: success, conflict (with continue/abort guidance), failure, and nothing-to-cherry-pick
+- On cherry-pick conflicts, IntelliGit opens conflict files in merge editors automatically (fallback: opens SCM view) and shows bottom status-bar actions for `Continue` / `Abort` while cherry-pick is in progress
 - Revert commit
 - Cherry-pick range
 - Compare commit with current branch

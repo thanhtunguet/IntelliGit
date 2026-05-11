@@ -834,9 +834,9 @@ export class CommandController {
       }
 
       if (conflictSha) {
-        const detail = issueMessage ? ` ${issueMessage}` : '';
+        await this.openCherryPickConflictEditors();
         void vscode.window.showWarningMessage(
-          `Cherry-pick conflicted at ${conflictSha.slice(0, 8)}.${detail} Resolve conflicts, then run Continue or Abort.`
+          'There are some conflicts. You have to resolve them first.'
         );
         return;
       }
@@ -2418,6 +2418,9 @@ export class CommandController {
     const conflictMarkers = [
       'conflict',
       'could not apply',
+      'unmerged files',
+      'cannot cherry-pick',
+      'can not cherry pick',
       'after resolving the conflicts',
       'fix conflicts and then commit the result',
       'cherry-pick failed'
@@ -2436,6 +2439,30 @@ export class CommandController {
       .map((line) => line.trim())
       .find(Boolean);
     return firstLine ?? 'Unknown git error.';
+  }
+
+  private async openCherryPickConflictEditors(): Promise<void> {
+    const conflicts = this.state.conflicts.length > 0
+      ? this.state.conflicts
+      : await this.git.getMergeConflicts();
+    if (conflicts.length === 0) {
+      await vscode.commands.executeCommand('workbench.view.scm');
+      return;
+    }
+
+    let openedCount = 0;
+    for (const conflict of conflicts) {
+      try {
+        await this.editor.openMergeConflict(conflict.path);
+        openedCount += 1;
+      } catch (error) {
+        this.logger.warn(`Failed to open merge editor for conflict file ${conflict.path}: ${String(error)}`);
+      }
+    }
+
+    if (openedCount < conflicts.length) {
+      await vscode.commands.executeCommand('workbench.view.scm');
+    }
   }
 
 }
