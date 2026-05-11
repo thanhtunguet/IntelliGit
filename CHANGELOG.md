@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file.
 - **Filter Graph multi-select details** — selecting multiple commits in Filter Graph now opens merged Commit Details range output (net file changes across the selected commit span) instead of only single-commit details.
 - **Filter Graph filter UX polish** — fixed per-field clear-button alignment to match Compare Branches styling, removed footer `Cancel / Clear Filters / Apply` buttons in Filter Graph, and made field changes apply filters immediately with lightweight debounce.
 - **Compare/Filter commit-list parity** — Compare Branches panes and Filter Graph preview now share the same commit-table markup and base row/column styling (graph glyph, sticky author/date columns, hover/selection states) via common Handlebars partials.
+- **View refresh action placement** — removed refresh icon buttons from IntelliGit view toolbars (Branches/Stashes/Graph/Worktrees/Submodules), added per-view `Refresh` entries to each view title context menu (`...` / right-click), removed the first refresh button from Submodules, and changed `Update All Submodules` toolbar action to an `arrow-down` icon.
 
 ## [0.15.4] - 2026-05-10
 

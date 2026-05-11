@@ -105,8 +105,7 @@
     "commands": [
       {
         "command": "intelliGit.refresh",
-        "title": "$(refresh)",
-        "icon": "$(refresh)"
+        "title": "Refresh"
       },
       {
         "command": "intelliGit.quickActions",
@@ -411,8 +410,7 @@
       },
       {
         "command": "intelliGit.worktree.refresh",
-        "title": "$(refresh)",
-        "icon": "$(refresh)"
+        "title": "Refresh Worktrees"
       },
       {
         "command": "intelliGit.worktree.open",
@@ -471,8 +469,7 @@
       },
       {
         "command": "intelliGit.submodule.refresh",
-        "title": "$(refresh)",
-        "icon": "$(refresh)"
+        "title": "Refresh Submodules"
       },
       {
         "command": "intelliGit.submodule.init",
@@ -489,7 +486,8 @@
       },
       {
         "command": "intelliGit.submodule.updateAll",
-        "title": "Update All Submodules"
+        "title": "Update All Submodules",
+        "icon": "$(arrow-down)"
       },
       {
         "command": "intelliGit.submodule.updateRecursive",
@@ -583,11 +581,6 @@
       ],
       "view/title": [
         {
-          "command": "intelliGit.refresh",
-          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph || view == intelliGit.worktrees || view == intelliGit.submodules",
-          "group": "navigation"
-        },
-        {
           "command": "intelliGit.worktree.addFromBranch",
           "when": "view == intelliGit.worktrees",
           "group": "navigation@1"
@@ -626,6 +619,21 @@
           "command": "intelliGit.quickActions",
           "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph || view == intelliGit.worktrees || view == intelliGit.submodules",
           "group": "navigation@9"
+        },
+        {
+          "command": "intelliGit.refresh",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
+          "group": "refresh@1"
+        },
+        {
+          "command": "intelliGit.worktree.refresh",
+          "when": "view == intelliGit.worktrees",
+          "group": "refresh@1"
+        },
+        {
+          "command": "intelliGit.submodule.refresh",
+          "when": "view == intelliGit.submodules",
+          "group": "refresh@1"
         }
       ],
       "view/item/context": [

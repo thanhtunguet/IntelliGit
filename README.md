@@ -149,6 +149,7 @@ Right-click any file or folder in the Explorer and choose **Compare with Revisio
 ### Worktrees (Tree View — Repo Structure panel)
 
 Worktrees are grouped into: **Current**, **Other Worktrees**, **Locked**, **Prunable / Stale**.
+Refresh action is available from the view context menu (view title right-click / `...` menu), not as a dedicated toolbar refresh icon.
 
 - Open worktree in this window or a new window
 - Reveal in Finder / Explorer
@@ -164,6 +165,7 @@ Worktrees are grouped into: **Current**, **Other Worktrees**, **Locked**, **Prun
 ### Submodules (Tree View — Repo Structure panel)
 
 Submodules are grouped into: **Needs Attention**, **Clean**, **Uninitialized**, **Nested**.
+Refresh action is available from the view context menu (view title right-click / `...` menu), and the toolbar keeps icon actions such as **Update All Submodules** (`arrow-down`).
 
 - Init submodule / Init all submodules
 - Update submodule / Update all / Update recursive
