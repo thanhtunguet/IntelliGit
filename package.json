@@ -244,6 +244,14 @@
         "title": "Open Commit Details"
       },
       {
+        "command": "intelliGit.graph.copyCommitId",
+        "title": "Copy Commit ID"
+      },
+      {
+        "command": "intelliGit.graph.copyCommitMessage",
+        "title": "Copy Commit Message"
+      },
+      {
         "command": "intelliGit.graph.openFileDiff",
         "title": "Open Commit File Diff"
       },
@@ -808,6 +816,16 @@
           "command": "intelliGit.graph.openDetails",
           "when": "view == intelliGit.graph && viewItem == graphCommit",
           "group": "navigation"
+        },
+        {
+          "command": "intelliGit.graph.copyCommitId",
+          "when": "view == intelliGit.graph && viewItem == graphCommit",
+          "group": "navigation@0.1"
+        },
+        {
+          "command": "intelliGit.graph.copyCommitMessage",
+          "when": "view == intelliGit.graph && viewItem == graphCommit",
+          "group": "navigation@0.2"
         },
         {
           "command": "intelliGit.graph.openFileDiff",

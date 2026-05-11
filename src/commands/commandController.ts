@@ -758,6 +758,36 @@ export class CommandController {
       }
     });
 
+    register('intelliGit.graph.copyCommitId', async (arg?: unknown, selected?: unknown) => {
+      const shas = toGraphCommitShas(arg, selected);
+      if (shas.length === 0) {
+        return;
+      }
+      await vscode.env.clipboard.writeText(shas.join('\n'));
+      void vscode.window.setStatusBarMessage(
+        shas.length > 1 ? `Copied ${shas.length} commit IDs` : `Copied commit ID ${shas[0]}`,
+        1500
+      );
+    });
+
+    register('intelliGit.graph.copyCommitMessage', async (arg?: unknown, selected?: unknown) => {
+      const shas = toGraphCommitShas(arg, selected);
+      if (shas.length === 0) {
+        return;
+      }
+      const messages = shas
+        .map((sha) => this.state.graph.find((commit) => commit.sha === sha)?.subject?.trim() ?? '')
+        .filter((value): value is string => Boolean(value));
+      if (messages.length === 0) {
+        return;
+      }
+      await vscode.env.clipboard.writeText(messages.join('\n'));
+      void vscode.window.setStatusBarMessage(
+        messages.length > 1 ? `Copied ${messages.length} commit messages` : 'Copied commit message',
+        1500
+      );
+    });
+
     register('intelliGit.graph.openFileDiff', async (arg?: unknown) => {
       const item = asGraphFileItem(arg);
       if (item) {
