@@ -942,21 +942,12 @@ export class CommandController {
       if (graphCommit) {
         await vscode.commands.executeCommand('intelliGit.graph.openDetails', new GraphCommitTreeItem(graphCommit));
       } else {
-        const details = await this.git.getCommitDetails(parent);
-        const doc = await vscode.workspace.openTextDocument({
-          language: 'markdown',
-          content: [
-            `# ${details.commit.shortSha} ${details.commit.subject}`,
-            '',
-            `- Author: ${details.commit.author}`,
-            `- Date: ${new Date(details.commit.date).toLocaleString()}`,
-            `- Commit: ${details.commit.sha}`,
-            '',
-            '## Message',
-            details.body
-          ].join('\n')
-        });
-        await vscode.window.showTextDocument(doc, { preview: false });
+        const subject = (await this.git.getCommitDetails(parent)).commit.subject;
+        await this.commitFilesView.showCommit(parent, subject);
+        const firstFile = this.commitFilesView.getAllFileItems()[0];
+        if (firstFile) {
+          await this.editor.openCommitFileDiffWithStatus(parent, firstFile.filePath, firstFile.status);
+        }
       }
     });
 

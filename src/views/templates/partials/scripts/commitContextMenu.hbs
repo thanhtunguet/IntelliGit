@@ -53,10 +53,18 @@
         menu.classList.add('visible');
 
         const menuRect = menu.getBoundingClientRect();
-        const maxX = Math.max(8, window.innerWidth - menuRect.width - 8);
-        const maxY = Math.max(8, window.innerHeight - menuRect.height - 8);
-        const targetX = Math.max(8, Math.min(x, maxX));
-        const targetY = Math.max(8, Math.min(y, maxY));
+        const viewport = window.visualViewport;
+        const viewportLeft = viewport ? viewport.offsetLeft : 0;
+        const viewportTop = viewport ? viewport.offsetTop : 0;
+        const viewportWidth = viewport ? viewport.width : window.innerWidth;
+        const viewportHeight = viewport ? viewport.height : window.innerHeight;
+
+        const minX = viewportLeft + 8;
+        const minY = viewportTop + 8;
+        const maxX = Math.max(minX, viewportLeft + viewportWidth - menuRect.width - 8);
+        const maxY = Math.max(minY, viewportTop + viewportHeight - menuRect.height - 8);
+        const targetX = Math.max(minX, Math.min(x, maxX));
+        const targetY = Math.max(minY, Math.min(y, maxY));
 
         menu.style.left = targetX + 'px';
         menu.style.top = targetY + 'px';
