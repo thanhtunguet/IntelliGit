@@ -194,6 +194,11 @@
         "title": "Create Patch"
       },
       {
+        "command": "intelliGit.tag.createCurrent",
+        "title": "Create new tag for current",
+        "icon": "$(add)"
+      },
+      {
         "command": "intelliGit.stash.create",
         "title": "Create Stash"
       },
@@ -604,6 +609,11 @@
           "command": "intelliGit.branch.search",
           "when": "view == intelliGit.branches",
           "group": "navigation@8"
+        },
+        {
+          "command": "intelliGit.tag.createCurrent",
+          "when": "view == intelliGit.branches",
+          "group": "navigation@8.1"
         },
         {
           "command": "intelliGit.graph.filter",

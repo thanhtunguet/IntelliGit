@@ -410,6 +410,26 @@ export class CommandController {
       await vscode.window.showTextDocument(doc, { preview: false });
     });
 
+    register('intelliGit.tag.createCurrent', async () => {
+      const sha = await this.git.getCurrentHeadSha();
+      if (!sha) {
+        return;
+      }
+
+      const name = await vscode.window.showInputBox({
+        title: `Create tag at ${sha.slice(0, 8)}`,
+        placeHolder: 'v1.2.3',
+        validateInput: (value) => (value.trim() ? undefined : 'Tag name is required')
+      });
+      if (!name) {
+        return;
+      }
+
+      await this.git.createTag(name.trim(), sha);
+      await this.state.refreshAll();
+      void vscode.window.showInformationMessage(`Created tag ${name.trim()} at ${sha.slice(0, 8)}.`);
+    });
+
     register('intelliGit.branch.rename', async (arg?: unknown) => {
       const from = toBranchName(arg) ?? (await this.pickBranchName('Pick branch to rename'));
       if (!from) {
