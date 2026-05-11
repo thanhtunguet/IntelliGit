@@ -4,8 +4,10 @@ import { CommitFilesTreeProvider } from '../providers/commitFilesTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
 import { CompareResult } from '../types';
-import { CompareView } from '../views/compareView';
+import { CompareCommitRangeSelection, CompareView } from '../views/compareView';
 import { VirtualGitContentProvider } from './virtualGitContentProvider';
+
+const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export class EditorOrchestrator {
   private compareView: CompareView | undefined;
@@ -131,6 +133,21 @@ export class EditorOrchestrator {
     });
   }
 
+  async openCommitRangeFileDiff(
+    fromRef: string,
+    toRef: string,
+    filePath: string,
+    labels?: { fromLabel?: string; toLabel?: string }
+  ): Promise<void> {
+    await this.closeEmptyEditorGroups();
+    await this.openDiffForFile({
+      path: filePath,
+      leftRef: fromRef,
+      rightRef: toRef,
+      title: `${labels?.fromLabel ?? formatRevisionLabel(fromRef)} ↔ ${labels?.toLabel ?? formatRevisionLabel(toRef)} · ${filePath}`
+    });
+  }
+
   async openWorkingTreeFileDiff(
     relativePath: string,
     ref: string,
@@ -195,6 +212,32 @@ export class EditorOrchestrator {
     });
   }
 
+  async openCompareCommitRangeDetails(selection: CompareCommitRangeSelection): Promise<void> {
+    if (selection.shas.length < 2) {
+      return;
+    }
+
+    const newestSha = selection.shas[0]!;
+    const oldestSha = selection.shas[selection.shas.length - 1]!;
+    const oldestParent = await this.git.getParentCommit(oldestSha);
+    const fromRef = oldestParent ? `${oldestSha}^` : EMPTY_TREE_SHA;
+    const toRef = newestSha;
+    const fromLabel = oldestParent ? `${oldestSha.slice(0, 8)}^` : 'root';
+    const toLabel = newestSha.slice(0, 8);
+    const files = await this.git.getFilesChangedBetweenRefsWithStatus(fromRef, toRef);
+
+    await this.commitFilesView.showCommitRange({
+      fromRef,
+      toRef,
+      fromLabel,
+      toLabel,
+      files
+    });
+    if (files.length === 0) {
+      void vscode.window.showInformationMessage('Selected commit range has no net file changes.');
+    }
+  }
+
   private async fileExists(uri: vscode.Uri): Promise<boolean> {
     try {
       await vscode.workspace.fs.stat(uri);
@@ -219,9 +262,14 @@ export class EditorOrchestrator {
 
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
-      this.compareView = new CompareView(async (sha, subject) => {
-        await this.commitFilesView.showCommit(sha, subject);
-      });
+      this.compareView = new CompareView(
+        async (sha, subject) => {
+          await this.commitFilesView.showCommit(sha, subject);
+        },
+        async (selection) => {
+          await this.openCompareCommitRangeDetails(selection);
+        }
+      );
       this.compareView.onDispose(() => {
         void this.commitFilesView.clear();
         this.compareView = undefined;
@@ -255,4 +303,15 @@ export class EditorOrchestrator {
       await vscode.window.tabGroups.close(emptyGroups, true);
     }
   }
+}
+
+function formatRevisionLabel(ref: string): string {
+  const token = (ref ?? '').trim();
+  if (!token) {
+    return '';
+  }
+  if (/^[0-9a-f]{9,}$/i.test(token)) {
+    return token.slice(0, 8);
+  }
+  return token;
 }

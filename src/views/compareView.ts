@@ -11,6 +11,16 @@ interface CommitClickMessage {
   readonly subject: string;
 }
 
+interface CommitRangeClickMessage {
+  readonly type: 'commitRangeClick';
+  readonly shas: readonly string[];
+}
+
+export interface CompareCommitRangeSelection {
+  readonly side: 'left' | 'right';
+  readonly shas: readonly string[];
+}
+
 interface CompareExportCommit {
   readonly sha: string;
   readonly subject: string;
@@ -34,7 +44,10 @@ export class CompareView {
   private disposeCallback: (() => void) | undefined;
   private currentResult: CompareResult | undefined;
 
-  constructor(private readonly onCommitClick: (sha: string, subject: string) => Promise<void>) {
+  constructor(
+    private readonly onCommitClick: (sha: string, subject: string) => Promise<void>,
+    private readonly onCommitRangeClick: (selection: CompareCommitRangeSelection) => Promise<void>
+  ) {
     this.panel = vscode.window.createWebviewPanel(
       'intelliGit.branchCompare',
       'IntelliGit: Branch Comparison',
@@ -82,9 +95,25 @@ export class CompareView {
       return;
     }
 
+    if (isCommitRangeClickMessage(message)) {
+      const selection = this.resolveContinuousSelection(message.shas);
+      if (selection) {
+        await this.onCommitRangeClick(selection);
+      }
+      return;
+    }
+
     if (isExportCompareMessage(message)) {
       await this.exportCompare(message);
       return;
+    }
+
+    if (isCommitActionMessage(message) && message.action === 'openDetails') {
+      const selection = this.resolveContinuousSelection(message.shas ?? [message.sha]);
+      if (selection) {
+        await this.onCommitRangeClick(selection);
+        return;
+      }
     }
 
     if (!isCommitActionMessage(message)) {
@@ -92,6 +121,49 @@ export class CompareView {
     }
 
     await handleCommitAction(message);
+  }
+
+  private resolveContinuousSelection(rawShas: readonly string[]): CompareCommitRangeSelection | undefined {
+    if (!this.currentResult) {
+      return undefined;
+    }
+
+    const selectedShas = normalizeShas(rawShas);
+    if (selectedShas.length < 2) {
+      return undefined;
+    }
+
+    const leftSelection = this.resolveContinuousSelectionForSide(this.currentResult.commitsOnlyLeft, selectedShas, 'left');
+    const rightSelection = this.resolveContinuousSelectionForSide(this.currentResult.commitsOnlyRight, selectedShas, 'right');
+
+    return leftSelection ?? rightSelection;
+  }
+
+  private resolveContinuousSelectionForSide(
+    commits: readonly GraphCommit[],
+    selectedShas: readonly string[],
+    side: 'left' | 'right'
+  ): CompareCommitRangeSelection | undefined {
+    const indices = selectedShas.map((sha) => commits.findIndex((commit) => commit.sha === sha));
+    if (indices.some((index) => index < 0)) {
+      return undefined;
+    }
+
+    const orderedUniqueIndices = [...new Set(indices)].sort((a, b) => a - b);
+    if (orderedUniqueIndices.length !== selectedShas.length) {
+      return undefined;
+    }
+
+    const first = orderedUniqueIndices[0];
+    const last = orderedUniqueIndices[orderedUniqueIndices.length - 1];
+    if (last - first + 1 !== orderedUniqueIndices.length) {
+      return undefined;
+    }
+
+    return {
+      side,
+      shas: commits.slice(first, last + 1).map((commit) => commit.sha)
+    };
   }
 
   private getCompareExportFormat(): CompareExportFormat {
@@ -257,6 +329,26 @@ function isCommitClickMessage(value: unknown): value is CommitClickMessage {
   }
   const c = value as Record<string, unknown>;
   return c.type === 'commitClick' && typeof c.sha === 'string';
+}
+
+function isCommitRangeClickMessage(value: unknown): value is CommitRangeClickMessage {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return candidate.type === 'commitRangeClick'
+    && Array.isArray(candidate.shas)
+    && candidate.shas.every((sha) => typeof sha === 'string');
+}
+
+function normalizeShas(rawShas: readonly string[]): string[] {
+  return Array.from(
+    new Set(
+      rawShas
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter(Boolean)
+    )
+  );
 }
 
 function isExportCompareMessage(value: unknown): value is ExportCompareMessage {

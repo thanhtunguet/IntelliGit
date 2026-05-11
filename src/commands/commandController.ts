@@ -6,6 +6,7 @@ import { BranchTreeItem, TagTreeItem } from '../providers/branchTreeProvider';
 import {
   CommitActionContext,
   CommitFileTreeItem,
+  CommitRangeFileTreeItem,
   RevisionFileTreeItem,
   WorkingTreeCompareFileTreeItem
 } from '../providers/commitFilesTreeProvider';
@@ -65,6 +66,44 @@ export class CommandController {
       value instanceof GraphCommitFileTreeItem ? value : undefined;
     const asCommitViewFileItem = (value: unknown): CommitFileTreeItem | undefined =>
       value instanceof CommitFileTreeItem ? value : undefined;
+    const asCommitRangeFileItem = (
+      value: unknown
+    ): { filePath: string; fromRef: string; toRef: string; fromLabel: string; toLabel: string } | undefined => {
+      if (value instanceof CommitRangeFileTreeItem) {
+        return {
+          filePath: value.filePath,
+          fromRef: value.fromRef,
+          toRef: value.toRef,
+          fromLabel: value.fromLabel,
+          toLabel: value.toLabel
+        };
+      }
+
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        'filePath' in value &&
+        'fromRef' in value &&
+        'toRef' in value
+      ) {
+        const record = value as Record<string, unknown>;
+        if (
+          typeof record.filePath === 'string' &&
+          typeof record.fromRef === 'string' &&
+          typeof record.toRef === 'string'
+        ) {
+          return {
+            filePath: record.filePath,
+            fromRef: record.fromRef,
+            toRef: record.toRef,
+            fromLabel: typeof record.fromLabel === 'string' ? record.fromLabel : record.fromRef,
+            toLabel: typeof record.toLabel === 'string' ? record.toLabel : record.toRef
+          };
+        }
+      }
+
+      return undefined;
+    };
     const asRevisionViewFileItem = (value: unknown): RevisionFileTreeItem | undefined =>
       value instanceof RevisionFileTreeItem ? value : undefined;
     const asWorkingTreeCompareFileItem = (
@@ -655,6 +694,17 @@ export class CommandController {
       const item = asGraphFileItem(arg);
       if (item) {
         await this.editor.openCommitFileDiff(item.commit.sha, item.filePath);
+        return;
+      }
+
+      const rangeItem = asCommitRangeFileItem(arg);
+      if (rangeItem) {
+        await this.editor.openCommitRangeFileDiff(
+          rangeItem.fromRef,
+          rangeItem.toRef,
+          rangeItem.filePath,
+          { fromLabel: rangeItem.fromLabel, toLabel: rangeItem.toLabel }
+        );
         return;
       }
 

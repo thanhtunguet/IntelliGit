@@ -1046,6 +1046,23 @@ export class GitService {
       .filter(Boolean);
   }
 
+  async getFilesChangedBetweenRefsWithStatus(fromRef: string, toRef: string): Promise<CommitFileChange[]> {
+    const result = await this.runGit(['diff', '--name-status', fromRef, toRef]);
+    return result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split('\t').filter(Boolean);
+        const statusRaw = parts[0] ?? '';
+        const pathRaw = parts.at(-1) ?? '';
+        const status = (statusRaw ?? '').trim();
+        const path = (pathRaw ?? '').trim();
+        return { status, path };
+      })
+      .filter((entry) => Boolean(entry.path));
+  }
+
   /**
    * Returns all files that differ between the working tree and the given ref.
    * Includes tracked files (via `git diff --name-status -z <ref>`) plus

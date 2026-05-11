@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.15.5] - 2026-05-11
+
+### Changed
+- **Compare Branches continuous multi-select details** — selecting a continuous commit range in the same compare pane now opens one merged Commit Details view showing net file changes across the selected span, and file clicks open range diffs (`oldest^ ↔ newest`) instead of per-commit-only details.
+
 ## [0.15.4] - 2026-05-10
 
 ### Changed

@@ -402,6 +402,10 @@
       const hasMultiModifier = event.shiftKey || event.ctrlKey || event.metaKey;
       updateSelection(row, event);
       if (hasMultiModifier) {
+        const selectedShas = getSelectedCommitShas();
+        if (selectedShas.length > 1) {
+          vscode.postMessage({ type: 'commitRangeClick', shas: selectedShas });
+        }
         return;
       }
       const graphCell = event.target && event.target.closest ? event.target.closest('.col-graph.copyable') : null;
