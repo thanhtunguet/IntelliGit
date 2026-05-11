@@ -1414,24 +1414,6 @@ export class CommandController {
       }
     });
 
-    register('intelliGit.fileHistory.open', async (arg?: unknown) => {
-      const file = toRepoFilePath(arg) ?? this.getActiveFilePath();
-      if (!file) {
-        void vscode.window.showWarningMessage('Select or open a file to view history.');
-        return;
-      }
-
-      const history = await this.git.fileHistory(file);
-      const content = [
-        `# File history: ${file}`,
-        '',
-        ...history.map((entry) => `- ${entry.shortSha} ${entry.subject} (${entry.author}, ${new Date(entry.date).toLocaleString()})`)
-      ].join('\n');
-
-      const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
-      await vscode.window.showTextDocument(doc, { preview: false });
-    });
-
     register('intelliGit.fileBlame.open', async () => {
       const file = this.getActiveFilePath();
       if (!file) {

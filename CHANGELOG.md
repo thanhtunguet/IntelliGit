@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 - **Git Graph commit details action** — `Open Commit Details` from the Git Graph tree no longer opens an ad-hoc markdown text document; it now loads the Commit Details sidebar and immediately opens the first changed file diff.
+- **Removed custom file-history action** — dropped `intelliGit.fileHistory.open` from command registration and Explorer context menu because VS Code Timeline already covers file/folder history workflows.
 - **Git Graph commit-row labeling** — commit rows in Git Graph now keep the title focused on the subject and move a 7-character commit hash into trailing metadata.
 - **Go to Parent Commit behavior** — when the parent commit is outside the current graph cache, the action now still opens Commit Details view (instead of a temporary markdown document) and focuses the first changed-file diff.
 - **Compare Branches commit context menu layering/placement** — raised menu z-index and improved viewport-aware clamping so commit context menu (including `Go to Parent Commit`) stays visible near bottom edges.

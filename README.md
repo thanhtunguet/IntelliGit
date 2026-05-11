@@ -278,7 +278,6 @@ Key command IDs (not exhaustive):
 - `intelliGit.scm.*` — shelveResource, commitTemplate, generateCommitMessage, amendFromInput
 - `intelliGit.worktree.*` — open, openInNewWindow, addFromBranch, addNewBranch, addDetached, remove, removeForce, lock, unlock, prunePreview, prune, revealInFinder, openTerminal
 - `intelliGit.submodule.*` — init, initAll, update, updateAll, updateRecursive, sync, syncAll, open, openInNewWindow, checkoutRecorded, pullTrackedBranch, diffPointer, stagePointerChange, deinit
-- `intelliGit.fileHistory.open`
 - `intelliGit.compareWithRevision` (Explorer context menu)
 - `intelliGit.fileBlame.open`
 

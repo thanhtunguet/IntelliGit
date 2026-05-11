@@ -22,7 +22,6 @@
     "onView:intelliGit.branches",
     "onCommand:intelliGit.quickActions",
     "onCommand:intelliGit.branch.actionHub",
-    "onCommand:intelliGit.fileHistory.open",
     "onCommand:intelliGit.compareWithRevision",
     "onCommand:intelliGit.fileBlame.open",
     "onCommand:intelliGit.scm.shelveResource",
@@ -385,10 +384,6 @@
       {
         "command": "intelliGit.scm.amendFromInput",
         "title": "Amend Last Commit (SCM Input)"
-      },
-      {
-        "command": "intelliGit.fileHistory.open",
-        "title": "Open File History"
       },
       {
         "command": "intelliGit.compareWithRevision",
@@ -902,21 +897,12 @@
       ],
       "explorer/context": [
         {
-          "command": "intelliGit.fileHistory.open",
-          "when": "explorerResourceIsFolder == false && resourceScheme == file",
-          "group": "z_intelliGit@1"
-        },
-        {
           "command": "intelliGit.compareWithRevision",
           "when": "resourceScheme == file",
-          "group": "z_intelliGit@2"
+          "group": "z_intelliGit@1"
         }
       ],
       "commandPalette": [
-        {
-          "command": "intelliGit.fileHistory.open",
-          "when": "false"
-        },
         {
           "command": "intelliGit.compareWithRevision",
           "when": "false"
