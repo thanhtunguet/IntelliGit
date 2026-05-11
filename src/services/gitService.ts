@@ -164,6 +164,7 @@ export class GitService {
   }
 
   async getBranches(): Promise<BranchRef[]> {
+    const remoteUrls = await this.getRemoteFetchUrls();
     const format = [
       '%(refname:short)',
       '%(refname)',
@@ -197,6 +198,7 @@ export class GitService {
           fullName,
           type,
           remoteName,
+          remoteUrl: remoteName ? remoteUrls.get(remoteName) : undefined,
           upstream: upstream || undefined,
           ahead,
           behind,
@@ -223,6 +225,27 @@ export class GitService {
         }
         return a.name.localeCompare(b.name);
       });
+  }
+
+  private async getRemoteFetchUrls(): Promise<Map<string, string>> {
+    try {
+      const result = await this.runGit(['remote', '-v']);
+      const urls = new Map<string, string>();
+      for (const line of result.stdout.split(/\r?\n/)) {
+        const match = line.trim().match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
+        if (!match) {
+          continue;
+        }
+        const [, remoteName, remoteUrl, mode] = match;
+        if (mode !== 'fetch' || urls.has(remoteName)) {
+          continue;
+        }
+        urls.set(remoteName, remoteUrl);
+      }
+      return urls;
+    } catch {
+      return new Map<string, string>();
+    }
   }
 
   async getTags(): Promise<TagRef[]> {

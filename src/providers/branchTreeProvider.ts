@@ -29,11 +29,15 @@ class TagSectionNode extends vscode.TreeItem {
 class BranchRemoteNode extends vscode.TreeItem {
   constructor(
     public readonly remoteName: string,
-    public readonly branches: BranchRef[]
+    public readonly branches: BranchRef[],
+    remoteUrl?: string
   ) {
     super(remoteName, vscode.TreeItemCollapsibleState.Collapsed);
     this.contextValue = 'branchRemoteGroup';
     this.id = `branchRemote:${remoteName}`;
+    if (remoteUrl) {
+      this.tooltip = remoteUrl;
+    }
   }
 }
 
@@ -193,7 +197,7 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
 
     return Array.from(byRemote.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([remoteName, remoteBranches]) => new BranchRemoteNode(remoteName, remoteBranches));
+      .map(([remoteName, remoteBranches]) => new BranchRemoteNode(remoteName, remoteBranches, remoteBranches[0]?.remoteUrl));
   }
 
   private buildPathNodes(

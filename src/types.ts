@@ -22,6 +22,7 @@ export interface BranchRef {
   readonly fullName: string;
   readonly type: BranchType;
   readonly remoteName?: string;
+  readonly remoteUrl?: string;
   readonly upstream?: string;
   readonly ahead: number;
   readonly behind: number;
