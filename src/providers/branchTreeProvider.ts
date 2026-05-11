@@ -11,7 +11,7 @@ class BranchSectionNode extends vscode.TreeItem {
   ) {
     const label = kind === 'recent' ? 'Recent' : kind === 'local' ? 'Local' : 'Remote';
     super(label, vscode.TreeItemCollapsibleState.Expanded);
-    this.contextValue = 'branchSection';
+    this.contextValue = kind === 'remote' ? 'branchSectionRemote' : 'branchSection';
     this.id = `branchSection:${kind}`;
     this.description = `${count}`;
   }

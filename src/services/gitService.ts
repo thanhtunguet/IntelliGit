@@ -310,6 +310,10 @@ export class GitService {
     await this.runGit(['remote', 'set-url', remoteName, remoteUrl]);
   }
 
+  async addRemote(remoteName: string, remoteUrl: string): Promise<void> {
+    await this.runGit(['remote', 'add', remoteName, remoteUrl]);
+  }
+
   async renameBranch(from: string, to: string): Promise<void> {
     await this.runGit(['branch', '-m', from, to]);
   }

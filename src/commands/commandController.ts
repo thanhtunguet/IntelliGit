@@ -458,6 +458,30 @@ export class CommandController {
     register('intelliGit.remote.changeUrl', setRemoteUrlFromItem);
     register('intelliGit.remote.setUrlMissing', setRemoteUrlFromItem);
 
+    register('intelliGit.remote.add', async () => {
+      const remoteUrl = await vscode.window.showInputBox({
+        title: 'Add Git remote',
+        placeHolder: 'https://github.com/org/repo.git',
+        validateInput: (value) => (value.trim() ? undefined : 'Remote URL is required')
+      });
+      if (!remoteUrl) {
+        return;
+      }
+
+      const remoteName = await vscode.window.showInputBox({
+        title: 'Remote name',
+        placeHolder: 'origin',
+        validateInput: (value) => (value.trim() ? undefined : 'Remote name is required')
+      });
+      if (!remoteName) {
+        return;
+      }
+
+      await this.git.addRemote(remoteName.trim(), remoteUrl.trim());
+      await this.state.refreshBranches();
+      void vscode.window.showInformationMessage(`Added remote ${remoteName.trim()}.`);
+    });
+
     register('intelliGit.branch.rename', async (arg?: unknown) => {
       const from = toBranchName(arg) ?? (await this.pickBranchName('Pick branch to rename'));
       if (!from) {

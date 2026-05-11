@@ -178,6 +178,10 @@
         "title": "Set remote url"
       },
       {
+        "command": "intelliGit.remote.add",
+        "title": "Add Git remote"
+      },
+      {
         "command": "intelliGit.tag.checkoutNewBranch",
         "title": "Checkout New Branch"
       },
@@ -737,6 +741,11 @@
         {
           "command": "intelliGit.remote.setUrlMissing",
           "when": "view == intelliGit.branches && viewItem == branchRemoteGroup && !intelliGit.remoteHasUrl",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.remote.add",
+          "when": "view == intelliGit.branches && viewItem == branchSectionRemote",
           "group": "navigation"
         },
         {
