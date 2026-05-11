@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 - **Filter Graph filter UX polish** — fixed per-field clear-button alignment to match Compare Branches styling, removed footer `Cancel / Clear Filters / Apply` buttons in Filter Graph, and made field changes apply filters immediately with lightweight debounce.
 - **Compare/Filter commit-list parity** — Compare Branches panes and Filter Graph preview now share the same commit-table markup and base row/column styling (graph glyph, sticky author/date columns, hover/selection states) via common Handlebars partials.
 - **View refresh action placement** — removed refresh icon buttons from IntelliGit view toolbars (Branches/Stashes/Graph/Worktrees/Submodules), added per-view `Refresh` entries to each view title context menu (`...` / right-click), removed the first refresh button from Submodules, and changed `Update All Submodules` toolbar action to an `arrow-down` icon.
+- **Edit commit message across commit surfaces** — enabled `Edit Commit Message...` in shared commit context menu used by Git Graph, Compare Branches, and Filter Graph. The action now opens a rewrite flow that updates the selected commit message (via automated interactive rebase) instead of staying disabled.
 
 ## [0.15.4] - 2026-05-10
 

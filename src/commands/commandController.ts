@@ -1093,6 +1093,57 @@ export class CommandController {
       await this.startRebaseOperation(() => this.git.rebaseInteractive(base));
     });
 
+    register('intelliGit.graph.editCommitMessage', async (arg?: unknown) => {
+      const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit to edit message'));
+      if (!sha) {
+        return;
+      }
+
+      const details = await this.git.getCommitDetails(sha);
+      const currentMessage = details.commit.subject.trim();
+      const nextMessage = await vscode.window.showInputBox({
+        title: `Edit commit message (${sha.slice(0, 8)})`,
+        value: currentMessage,
+        validateInput: (value) => (value.trim() ? undefined : 'Commit message is required')
+      });
+      if (nextMessage === undefined) {
+        return;
+      }
+
+      const trimmedMessage = nextMessage.trim();
+      if (trimmedMessage === currentMessage) {
+        return;
+      }
+
+      const confirmed = await confirmDangerousAction({
+        title: 'Rewrite commit message',
+        detail: `Commit: ${sha}\nThis rewrites commit history and may require force push.`,
+        acceptLabel: 'Rewrite'
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      const parent = await this.git.getParentCommit(sha);
+      if (!parent) {
+        void vscode.window.showWarningMessage('Cannot edit the root commit message from this action.');
+        return;
+      }
+
+      const escapedSha = sha.replace(/'/g, `'\"'\"'`);
+      const escapedMessage = trimmedMessage.replace(/'/g, `'\"'\"'`);
+      const sequenceEditor = `sh -c 'TODO_FILE=\"$1\"; sed -i.bak -e \"s/^pick ${escapedSha}/reword ${escapedSha}/\" \"$TODO_FILE\"; rm -f \"$TODO_FILE.bak\"' --`;
+      const editor = `sh -c 'printf %s \"${escapedMessage}\" > \"$1\"' --`;
+
+      await this.startRebaseOperation(async () => {
+        await this.git.runGit([
+          '-c', `sequence.editor=${sequenceEditor}`,
+          '-c', `core.editor=${editor}`,
+          'rebase', '-i', parent
+        ]);
+      });
+    });
+
     register('intelliGit.graph.goToParentCommit', async (arg?: unknown) => {
       const sha = toCommitSha(arg) ?? (await this.pickCommitSha('Pick commit'));
       if (!sha) {

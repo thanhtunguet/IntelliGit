@@ -13,6 +13,7 @@ export type CommitAction =
   | 'resetCurrentBranchToHere'
   | 'revertCommit'
   | 'interactiveRebaseFromHere'
+  | 'editCommitMessage'
   | 'newBranch'
   | 'newTag'
   | 'goToParentCommit';
@@ -103,6 +104,9 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
       return;
     case 'interactiveRebaseFromHere':
       await vscode.commands.executeCommand('intelliGit.graph.rebaseInteractiveFromHere', sha);
+      return;
+    case 'editCommitMessage':
+      await vscode.commands.executeCommand('intelliGit.graph.editCommitMessage', sha);
       return;
     case 'newBranch':
       await vscode.commands.executeCommand('intelliGit.graph.createBranchHere', sha);
