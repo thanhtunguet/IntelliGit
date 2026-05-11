@@ -353,7 +353,7 @@ function buildBranchTooltip(branch: BranchRef): string {
 }
 
 function buildTagTooltip(tag: TagRef): string {
-  const remoteLines = (tag.availableOnRemotes ?? []).map((remoteName) => `$(globe) Available on ${remoteName}`);
+  const remoteLines = (tag.availableOnRemotes ?? []).map((remoteName) => `Available on ${remoteName}`);
   const lines = [
     ...remoteLines,
     (tag.availableOnRemotes?.length ?? 0) === 0 ? 'Local only' : '',
@@ -371,7 +371,7 @@ function describeTagRemotes(tag: TagRef): string {
   if (remotes.length === 0) {
     return '';
   }
-  return remotes.map(() => '$(globe)').join(' ');
+  return remotes.map(() => '🌐').join(' ');
 }
 
 function formatComparison(comparison: BranchRef['comparison'] | TagRef['comparison']): string {

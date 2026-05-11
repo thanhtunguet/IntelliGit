@@ -126,7 +126,8 @@
       },
       {
         "command": "intelliGit.branch.create",
-        "title": "Create Branch"
+        "title": "Create Branch",
+        "icon": "$(add)"
       },
       {
         "command": "intelliGit.branch.rename",
@@ -627,7 +628,7 @@
           "group": "navigation@8"
         },
         {
-          "command": "intelliGit.tag.createCurrent",
+          "command": "intelliGit.branch.create",
           "when": "view == intelliGit.branches",
           "group": "navigation@8.1"
         },
@@ -640,11 +641,6 @@
           "command": "intelliGit.graph.clearFilter",
           "when": "view == intelliGit.graph && intelliGit.graphFilterActive",
           "group": "navigation@8.1"
-        },
-        {
-          "command": "intelliGit.quickActions",
-          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph || view == intelliGit.worktrees || view == intelliGit.submodules",
-          "group": "navigation@9"
         },
         {
           "command": "intelliGit.refresh",
@@ -734,6 +730,11 @@
           "group": "navigation@4"
         },
         {
+          "command": "intelliGit.tag.createCurrent",
+          "when": "view == intelliGit.branches && viewItem == tagSection",
+          "group": "inline@1"
+        },
+        {
           "command": "intelliGit.remote.changeUrl",
           "when": "view == intelliGit.branches && viewItem == branchRemoteGroup && intelliGit.remoteHasUrl",
           "group": "navigation"
@@ -746,6 +747,31 @@
         {
           "command": "intelliGit.remote.add",
           "when": "view == intelliGit.branches && viewItem == branchSectionRemote",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.refresh",
+          "when": "view == intelliGit.branches && !viewItem",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.refresh",
+          "when": "view == intelliGit.stashes && !viewItem",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.refresh",
+          "when": "view == intelliGit.graph && !viewItem",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.worktree.refresh",
+          "when": "view == intelliGit.worktrees && !viewItem",
+          "group": "navigation"
+        },
+        {
+          "command": "intelliGit.submodule.refresh",
+          "when": "view == intelliGit.submodules && !viewItem",
           "group": "navigation"
         },
         {
