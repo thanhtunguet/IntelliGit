@@ -5,10 +5,10 @@ import { GraphCommit } from '../types';
 
 export class GraphCommitTreeItem extends vscode.TreeItem {
   constructor(public readonly commit: GraphCommit) {
-    super(`${commit.shortSha} ${commit.subject}`, vscode.TreeItemCollapsibleState.Collapsed);
+    super(commit.subject, vscode.TreeItemCollapsibleState.Collapsed);
     this.contextValue = 'graphCommit';
     this.id = `commit:${commit.sha}`;
-    this.description = [commit.author, new Date(commit.date).toLocaleString()].join(' · ');
+    this.description = ` ${commit.sha.slice(0, 7)}`;
     this.tooltip = [
       commit.sha,
       commit.subject,

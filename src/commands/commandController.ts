@@ -52,6 +52,7 @@ export class CommandController {
     private readonly logger: Logger,
     private readonly commitFilesView: {
       getCommitActionContext(selectedItems: readonly CommitFileTreeItem[]): CommitActionContext | undefined;
+      getAllFileItems(): CommitFileTreeItem[];
       showCommit(sha: string, subject: string): Promise<void>;
     }
   ) { }
@@ -660,6 +661,9 @@ export class CommandController {
 
     register('intelliGit.graph.openDetails', async (arg?: unknown, selected?: unknown) => {
       const selectedShas = toGraphCommitShas(arg, selected);
+      const shouldOpenFirstDiff =
+        asGraphItem(arg) !== undefined ||
+        (Array.isArray(selected) && selected.some((item) => asGraphItem(item) !== undefined));
       if (selectedShas.length === 0) {
         const picked = await this.pickCommitSha('Pick commit for details');
         if (!picked) {
@@ -669,24 +673,14 @@ export class CommandController {
       }
 
       for (const sha of selectedShas) {
-        const details = await this.git.getCommitDetails(sha);
-        const content = [
-          `# ${details.commit.shortSha} ${details.commit.subject}`,
-          '',
-          `- Author: ${details.commit.author}`,
-          `- Date: ${new Date(details.commit.date).toLocaleString()}`,
-          `- Commit: ${details.commit.sha}`,
-          `- Parents: ${details.commit.parents.join(', ') || 'none'}`,
-          '',
-          '## Message',
-          details.body,
-          '',
-          '## Changed Files',
-          ...details.changedFiles.map((file) => `- ${file.status} ${file.path}`)
-        ].join('\n');
-
-        const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
-        await vscode.window.showTextDocument(doc, { preview: false });
+        const subject = this.state.graph.find((commit) => commit.sha === sha)?.subject ?? sha;
+        await this.commitFilesView.showCommit(sha, subject);
+        if (shouldOpenFirstDiff) {
+          const firstFile = this.commitFilesView.getAllFileItems()[0];
+          if (firstFile) {
+            await this.editor.openCommitFileDiffWithStatus(sha, firstFile.filePath, firstFile.status);
+          }
+        }
       }
     });
 

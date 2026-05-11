@@ -12,7 +12,7 @@ Keep these documents current whenever you add a feature, change existing behavio
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **IntelliGit** (1908 symbols, 5299 relationships, 159 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **IntelliGit** (2011 symbols, 5533 relationships, 155 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

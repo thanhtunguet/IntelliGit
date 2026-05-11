@@ -99,10 +99,10 @@ Stash list with message, author, timestamp, file count. Stash actions:
 
 ### Git Graph (Tree View)
 
-Commit list with graph-like glyph, refs, author, date, and message. Each commit is expandable to show its changed files.
+Commit list with graph-like glyph, refs, author/date metadata, subject-first title, and trailing short hash. Each commit is expandable to show its changed files.
 
 **Commit actions:**
-- Open Commit Details (loads the Commit Details sidebar view)
+- Open Commit Details (loads the Commit Details sidebar view and, in Git Graph tree, opens the first changed file diff)
 - Checkout commit (detached, guarded)
 - Create branch at commit
 - Create tag at commit
