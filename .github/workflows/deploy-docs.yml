@@ -36,6 +36,12 @@ jobs:
       - name: Build with VitePress
         run: npm run build
         working-directory: ./website
+
+      - name: Copy logo
+        run: |
+          cp logo.png website/.vitepress/dist/
+          cp logo.svg website/.vitepress/dist/
+        shell: bash
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
