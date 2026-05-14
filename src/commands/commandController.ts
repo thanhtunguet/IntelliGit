@@ -933,31 +933,30 @@ export class CommandController {
       let conflictSha: string | undefined;
       let issueMessage: string | undefined;
 
-      try {
-        for (const sha of selectedShas) {
-          try {
-            await this.git.cherryPick(sha);
-            pickedShas.push(sha);
-          } catch (error) {
-            const issue = this.classifyCherryPickIssue(error);
-            issueMessage = issue.message;
-            if (issue.kind === 'nothingToCherryPick') {
-              emptyShas.push(sha);
-              continue;
-            }
-            if (issue.kind === 'conflict') {
-              conflictSha = sha;
-              break;
-            }
-            failedShas.push(sha);
+      for (const sha of selectedShas) {
+        try {
+          await this.git.cherryPick(sha);
+          pickedShas.push(sha);
+        } catch (error) {
+          const issue = this.classifyCherryPickIssue(error);
+          issueMessage = issue.message;
+          if (issue.kind === 'nothingToCherryPick') {
+            emptyShas.push(sha);
+            continue;
+          }
+          if (issue.kind === 'conflict') {
+            conflictSha = sha;
             break;
           }
+          failedShas.push(sha);
+          break;
         }
-      } finally {
-        await this.state.refreshAll();
       }
 
+      const refreshPromise = this.state.refreshAll();
+
       if (conflictSha) {
+        await refreshPromise;
         await this.openOperationConflictEditors('cherry-pick');
         void vscode.window.showWarningMessage(
           'There are some conflicts. You have to resolve them first.'
@@ -971,6 +970,7 @@ export class CommandController {
           ? `Cherry-pick stopped after applying ${pickedShas.length} commit(s).`
           : 'Cherry-pick failed.';
         void vscode.window.showErrorMessage(`${prefix}${detail}`);
+        await refreshPromise;
         return;
       }
 
@@ -979,6 +979,7 @@ export class CommandController {
           ? `Cherry-pick succeeded for ${pickedShas[0].slice(0, 8)}.`
           : `Cherry-pick succeeded for ${pickedShas.length} commit(s).`;
         void vscode.window.showInformationMessage(message);
+        await refreshPromise;
         return;
       }
 
@@ -987,6 +988,7 @@ export class CommandController {
           ? `Nothing to cherry-pick for ${emptyShas[0].slice(0, 8)} (already applied or empty).`
           : `Nothing to cherry-pick for ${emptyShas.length} commit(s) (already applied or empty).`;
         void vscode.window.showInformationMessage(message);
+        await refreshPromise;
         return;
       }
 
@@ -994,6 +996,7 @@ export class CommandController {
         void vscode.window.showInformationMessage(
           `Cherry-pick completed: ${pickedShas.length} applied, ${emptyShas.length} already applied or empty.`
         );
+        await refreshPromise;
       }
     });
 
@@ -1084,8 +1087,9 @@ export class CommandController {
       }
 
       await this.git.cherryPickCommitFiles(target.sha, target.filePaths, target.subject);
-      await this.state.refreshAll();
+      const refreshPromise = this.state.refreshAll();
       void vscode.window.showInformationMessage(`Cherry-picked selected changes from ${target.sha.slice(0, 8)}.`);
+      await refreshPromise;
     });
 
     register('intelliGit.commit.createPatchSelectedChanges', async (arg?: unknown, selected?: unknown) => {

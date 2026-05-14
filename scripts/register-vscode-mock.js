@@ -49,11 +49,19 @@ class ThemeColor {
   }
 }
 
+class TreeItem {
+  constructor(label, collapsibleState) {
+    this.label = label;
+    this.collapsibleState = collapsibleState;
+  }
+}
+
 const vscodeMock = {
   EventEmitter,
   Uri,
   ThemeIcon,
   ThemeColor,
+  TreeItem,
   QuickPickItemKind: { Separator: -1 },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   OverviewRulerLane: { Left: 1 },
