@@ -36,7 +36,7 @@ There is also a soft requirement: when multiple events arrive in a burst (CLI ch
 
 `GitService` will:
 
-- Keep a private snapshot of the last observed `repository.state` reduced to a fingerprint: `HEAD.name`, `HEAD.commit`, and `length + first/last path` of each change list (`indexChanges`, `workingTreeChanges`, `mergeChanges`, `untrackedChanges`).
+- Keep a private snapshot of the last observed `repository.state` reduced to a fingerprint: `HEAD.name`, `HEAD.commit`, and for each change list (`indexChanges`, `workingTreeChanges`, `mergeChanges`, `untrackedChanges`) a tuple `(length, firstPath ?? "", lastPath ?? "")`. Two snapshots are equal iff all fields are equal.
 - On each `state.onDidChange`, compute a typed change set:
 
   ```ts
@@ -68,7 +68,7 @@ Watchers are created in `StateStore.attachAutoRefresh` once the `.git` directory
 | `<workspace>/.gitmodules`, `modules/**`                       | `['submodules']` |
 | `MERGE_HEAD`, `REBASE_HEAD`, `rebase-merge/**`, `rebase-apply/**`, `CHERRY_PICK_HEAD`, `REVERT_HEAD` | `['changes']` (operation state is recomputed inside `loadChanges`) |
 
-Watchers are constructed with `vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(gitDirUri, pattern))` and disposed via `context.subscriptions`. If `getGitDir()` cannot resolve the `.git` directory at activation, watcher setup is deferred until the first successful resolution; if it never resolves, we log once.
+Watchers are constructed with `vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(gitDirUri, pattern))` and disposed via `context.subscriptions`. If `getGitDir()` cannot resolve the `.git` directory at activation, watcher setup is deferred and retried on the next `onRepositoryAvailable` notification. If it never resolves, we log once and proceed without these watchers (signals 1 and 3 still operate).
 
 ### Signal 3 — View visibility (existing, retained)
 
