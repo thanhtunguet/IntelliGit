@@ -27,6 +27,10 @@
     .filter-input.invalid {
       border-color: var(--vscode-inputValidation-errorBorder, #d93025);
     }
+    .filters .filter-field:has(> .input-shell > #filter-exclude-message) {
+      grid-column: 1 / 5;
+      grid-row: 2;
+    }
     {{> partials/styles/fieldClear}}
     .filter-actions {
       display: flex;
@@ -102,6 +106,14 @@
 <body>
   <section class="filters">
     {{> partials/molecules/textFilterField
+      id="filter-message"
+      label="Message"
+      placeholder="Type to fuzzy match"
+      clearLabel="Message"
+      autocompleteAttr="off"
+      spellcheck="false"
+    }}
+    {{> partials/molecules/textFilterField
       id="filter-author"
       label="Author"
       placeholder="Type author name"
@@ -110,14 +122,6 @@
       autocompleteId="author-autocomplete"
       autocompleteClass="author-autocomplete"
       autocompleteLabel="Author suggestions"
-    }}
-    {{> partials/molecules/textFilterField
-      id="filter-exclude-message"
-      label="Exclude message (regex)"
-      placeholder="Merge pull request|WIP"
-      clearLabel="Exclude message regex"
-      autocompleteAttr="off"
-      spellcheck="false"
     }}
     {{> partials/molecules/dateFilterField
       id="filter-since"
@@ -132,6 +136,14 @@
     <div class="filter-actions">
       <button id="filter-clear" class="filter-clear" type="button">Clear filters</button>
     </div>
+    {{> partials/molecules/textFilterField
+      id="filter-exclude-message"
+      label="Exclude message (regex)"
+      placeholder="Merge pull request|WIP"
+      clearLabel="Exclude message regex"
+      autocompleteAttr="off"
+      spellcheck="false"
+    }}
     <div class="filter-options">
       <label
         class="filter-checkbox-label"
@@ -167,6 +179,7 @@
     const allAuthors = {{{authorsJson}}};
     const authorInput = document.getElementById('filter-author');
     const authorAutocomplete = document.getElementById('author-autocomplete');
+    const messageInput = document.getElementById('filter-message');
     const excludeMessageInput = document.getElementById('filter-exclude-message');
     const sinceInput = document.getElementById('filter-since');
     const untilInput = document.getElementById('filter-until');
@@ -504,6 +517,19 @@
 
     const isMergeLikeSubject = (subject) => /\bmerge\b/i.test(subject);
 
+    const fuzzyMatchSubject = (subject, pattern) => {
+      if (!pattern) { return true; }
+      const text = subject.toLowerCase();
+      const needle = pattern.toLowerCase();
+      let textIndex = 0;
+      for (let needleIndex = 0; needleIndex < needle.length; needleIndex += 1) {
+        textIndex = text.indexOf(needle[needleIndex], textIndex);
+        if (textIndex < 0) { return false; }
+        textIndex += 1;
+      }
+      return true;
+    };
+
     const updateBannerCount = (side, visibleCount) => {
       const banner = document.querySelector('.section-banner[data-side="' + side + '"]');
       if (!banner) { return; }
@@ -527,6 +553,7 @@
 
     const applyFilters = () => {
       const authorFilter = (authorInput && authorInput.value ? authorInput.value : '').trim().toLowerCase();
+      const messageFilter = (messageInput && messageInput.value ? messageInput.value : '').trim();
       const excludeRegex = parseExcludeMessageRegex();
       const sinceTs = parseSince(sinceInput ? sinceInput.value : '');
       const untilTs = parseUntil(untilInput ? untilInput.value : '');
@@ -546,11 +573,12 @@
         const subject = subjectRaw.toLowerCase();
         const timestamp = Number(row.getAttribute('data-timestamp') || '0');
         const authorOk = !authorFilter || author.includes(authorFilter);
+        const messageOk = fuzzyMatchSubject(subjectRaw, messageFilter);
         const excludeOk = !excludeRegex || !excludeRegex.test(subjectRaw);
         const sinceOk = sinceTs === undefined || timestamp >= sinceTs;
         const untilOk = untilTs === undefined || timestamp <= untilTs;
         const mergeOk = !ignoreMerges || !isMergeLikeSubject(subjectRaw);
-        const baseVisible = authorOk && excludeOk && sinceOk && untilOk && mergeOk;
+        const baseVisible = authorOk && messageOk && excludeOk && sinceOk && untilOk && mergeOk;
         const matchingKey = [author, String(timestamp), subject].join('\u0000');
         if (baseVisible && (side === 'left' || side === 'right')) {
           oppositeKeysBySide[side].add(matchingKey);
@@ -625,6 +653,9 @@
     if (untilInput) {
       untilInput.addEventListener('change', applyFilters);
     }
+    if (messageInput) {
+      messageInput.addEventListener('input', applyFilters);
+    }
     if (excludeMessageInput) {
       excludeMessageInput.addEventListener('input', applyFilters);
     }
@@ -637,6 +668,7 @@
     if (clearButton) {
       clearButton.addEventListener('click', () => {
         if (authorInput) { authorInput.value = ''; }
+        if (messageInput) { messageInput.value = ''; }
         if (excludeMessageInput) { excludeMessageInput.value = ''; }
         if (sinceInput) { sinceInput.value = ''; }
         if (untilInput) { untilInput.value = ''; }

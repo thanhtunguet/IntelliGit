@@ -56,7 +56,7 @@ The comparison tab shows both directions (`A..B` and `B..A`) with commit and cha
 - `Cmd/Ctrl+A` to select all visible commits in the active pane.
 - `Esc` to clear selection.
 - Merged Commit Details for a continuous selected range.
-- Author, exclude-message regex, and from/to date filters.
+- Fuzzy message, author, exclude-message regex, and from/to date filters.
 - Optional filters to ignore merge commits.
 - Optional matching-message detection to hide likely cherry-picked commits across branches using author, timestamp, and message.
 - Export as two CSV files or one Excel workbook with two sheets.
