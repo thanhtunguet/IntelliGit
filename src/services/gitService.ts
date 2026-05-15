@@ -99,6 +99,37 @@ export class GitService {
   private _vscodeGitRepository: VsCodeGitRepository | undefined;
   private readonly gitCommandQueue = new GitCommandQueue(process.platform === 'win32' ? 2 : 4);
 
+  private static readonly BRANCH_FORMAT = [
+    '%(refname:short)',
+    '%(refname)',
+    '%(upstream:short)',
+    '%(upstream:track)',
+    '%(HEAD)',
+    '%(committerdate:unix)'
+  ].join(FIELD_SEPARATOR);
+
+  private static readonly BRANCH_SORT_COMPARATOR = (a: BranchRef, b: BranchRef): number => {
+    if (a.current) { return -1; }
+    if (b.current) { return 1; }
+    if (a.type !== b.type) { return a.type === 'local' ? -1 : 1; }
+    return a.name.localeCompare(b.name);
+  };
+
+  private static readonly TAG_FORMAT = [
+    '%(refname:short)',
+    '%(refname)',
+    '%(objectname)',
+    '%(*objectname)',
+    '%(creatordate:unix)'
+  ].join(FIELD_SEPARATOR);
+
+  private static readonly TAG_SORT_COMPARATOR = (a: TagRef, b: TagRef): number => {
+    const left = a.lastCommitEpoch ?? 0;
+    const right = b.lastCommitEpoch ?? 0;
+    if (left !== right) { return right - left; }
+    return a.name.localeCompare(b.name);
+  };
+
   constructor(
     private readonly context: RepositoryContext,
     private readonly logger: Logger,
@@ -175,25 +206,35 @@ export class GitService {
     return result.stdout.trim();
   }
 
-  async getBranches(): Promise<BranchRef[]> {
-    const remoteUrls = await this.getRemoteFetchUrls();
-    const format = [
-      '%(refname:short)',
-      '%(refname)',
-      '%(upstream:short)',
-      '%(upstream:track)',
-      '%(HEAD)',
-      '%(committerdate:unix)'
-    ].join(FIELD_SEPARATOR);
-
+  async getLocalBranches(): Promise<BranchRef[]> {
     const result = await this.runGit([
       'for-each-ref',
-      `--format=${format}${RECORD_SEPARATOR}`,
-      'refs/heads',
+      `--format=${GitService.BRANCH_FORMAT}${RECORD_SEPARATOR}`,
+      'refs/heads'
+    ]);
+    return this.parseBranchLines(result.stdout, new Map()).sort(GitService.BRANCH_SORT_COMPARATOR);
+  }
+
+  async getRemoteBranches(remoteUrls: Map<string, string>): Promise<BranchRef[]> {
+    const result = await this.runGit([
+      'for-each-ref',
+      `--format=${GitService.BRANCH_FORMAT}${RECORD_SEPARATOR}`,
       'refs/remotes'
     ]);
+    return this.parseBranchLines(result.stdout, remoteUrls).sort(GitService.BRANCH_SORT_COMPARATOR);
+  }
 
-    const parsed = result.stdout
+  async getBranches(): Promise<BranchRef[]> {
+    const remoteUrls = await this.getRemoteFetchUrls();
+    const [locals, remotes] = await Promise.all([
+      this.getLocalBranches(),
+      this.getRemoteBranches(remoteUrls)
+    ]);
+    return [...locals, ...remotes].sort(GitService.BRANCH_SORT_COMPARATOR);
+  }
+
+  private parseBranchLines(stdout: string, remoteUrls: Map<string, string>): BranchRef[] {
+    return stdout
       .split(RECORD_SEPARATOR)
       .map((line) => line.trim())
       .filter(Boolean)
@@ -219,27 +260,12 @@ export class GitService {
         };
       })
       .filter((branch) => {
-        // Ignore remote root refs like "origin" (no slash) so each remote
-        // group only contains actual branches under "<remote>/<branch>".
+        // Drop remote root refs like "origin" (no slash).
         return branch.type !== 'remote' || branch.name.includes('/');
-      });
-
-    return parsed
-      .sort((a, b) => {
-        if (a.current) {
-          return -1;
-        }
-        if (b.current) {
-          return 1;
-        }
-        if (a.type !== b.type) {
-          return a.type === 'local' ? -1 : 1;
-        }
-        return a.name.localeCompare(b.name);
       });
   }
 
-  private async getRemoteFetchUrls(): Promise<Map<string, string>> {
+  async getRemoteFetchUrls(): Promise<Map<string, string>> {
     try {
       const result = await this.runGit(['remote', '-v']);
       const urls = new Map<string, string>();
@@ -260,16 +286,13 @@ export class GitService {
     }
   }
 
-  async getTags(): Promise<TagRef[]> {
-    const availabilityByTag = await this.getTagAvailabilityByRemote();
-    const format = ['%(refname:short)', '%(refname)', '%(objectname)', '%(*objectname)', '%(creatordate:unix)'].join(FIELD_SEPARATOR);
+  async getTagsBasic(): Promise<TagRef[]> {
     const result = await this.runGit([
       'for-each-ref',
-      `--format=${format}${RECORD_SEPARATOR}`,
+      `--format=${GitService.TAG_FORMAT}${RECORD_SEPARATOR}`,
       'refs/tags'
     ]);
-
-    const parsed = result.stdout
+    return result.stdout
       .split(RECORD_SEPARATOR)
       .map((line) => line.trim())
       .filter(Boolean)
@@ -280,23 +303,34 @@ export class GitService {
           name,
           fullName,
           sha: peeledSha || objectSha || undefined,
-          availableOnRemotes: Array.from(availabilityByTag.get(name) ?? []).sort((a, b) => a.localeCompare(b)),
+          availableOnRemotes: [] as string[],
           lastCommitEpoch: Number.isNaN(commitEpoch) ? undefined : commitEpoch
         };
-      });
-
-    return parsed
-      .sort((a, b) => {
-        const left = a.lastCommitEpoch ?? 0;
-        const right = b.lastCommitEpoch ?? 0;
-        if (left !== right) {
-          return right - left;
-        }
-        return a.name.localeCompare(b.name);
-      });
+      })
+      .sort(GitService.TAG_SORT_COMPARATOR);
   }
 
-  private async getTagAvailabilityByRemote(): Promise<Map<string, Set<string>>> {
+  mergeTagAvailability(
+    tags: readonly TagRef[],
+    availability: ReadonlyMap<string, ReadonlySet<string>>
+  ): TagRef[] {
+    return tags.map((tag) => ({
+      ...tag,
+      availableOnRemotes: Array.from(availability.get(tag.name) ?? []).sort((a, b) =>
+        a.localeCompare(b)
+      )
+    }));
+  }
+
+  async getTags(): Promise<TagRef[]> {
+    const [basic, availability] = await Promise.all([
+      this.getTagsBasic(),
+      this.getTagAvailabilityByRemote()
+    ]);
+    return this.mergeTagAvailability(basic, availability);
+  }
+
+  async getTagAvailabilityByRemote(): Promise<Map<string, Set<string>>> {
     const resultMap = new Map<string, Set<string>>();
     try {
       const remoteUrls = await this.getRemoteFetchUrls();
