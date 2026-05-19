@@ -95,8 +95,9 @@ export interface RevisionResolver {
  */
 export async function pickRevisionToCompare(
   git: GitService,
-  branches: readonly BranchRef[],
-  tags: readonly TagRef[]
+  getBranches: () => readonly BranchRef[],
+  getTags: () => readonly TagRef[],
+  onRefresh: () => Promise<void>
 ): Promise<RevisionSelection | undefined> {
   return new Promise<RevisionSelection | undefined>((resolve) => {
     let resolved = false;
@@ -113,7 +114,7 @@ export async function pickRevisionToCompare(
     qp.placeholder = 'Select a branch, tag, or type a commit SHA…';
     qp.matchOnDescription = true;
 
-    const baseItems = buildRevisionPickerItems(branches, tags);
+    let baseItems = buildRevisionPickerItems(getBranches(), getTags());
     qp.items = baseItems;
 
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -189,5 +190,24 @@ export async function pickRevisionToCompare(
     });
 
     qp.show();
+
+    if (qp.items.length === 0) {
+      qp.busy = true;
+      qp.placeholder = 'Loading branches and tags…';
+      void onRefresh()
+        .then(() => {
+          baseItems = buildRevisionPickerItems(getBranches(), getTags());
+          qp.items = baseItems;
+          qp.placeholder = baseItems.length > 0
+            ? 'Select a branch, tag, or type a commit SHA…'
+            : 'No branches found — type a commit SHA';
+        })
+        .catch(() => {
+          qp.placeholder = 'Failed to load branches';
+        })
+        .finally(() => {
+          qp.busy = false;
+        });
+    }
   });
 }

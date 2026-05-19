@@ -1780,7 +1780,12 @@ export class CommandController {
         });
       }
 
-      const selection = await pickRevisionToCompare(this.git, this.state.branches, this.state.tags);
+      const selection = await pickRevisionToCompare(
+        this.git,
+        () => this.state.branches,
+        () => this.state.tags,
+        () => this.state.refreshBranches()
+      );
       if (!selection) {
         return;
       }
