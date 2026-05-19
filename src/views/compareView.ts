@@ -51,6 +51,10 @@ interface RefreshMessage {
   readonly type: 'refresh';
 }
 
+interface RefreshCompleteMessage {
+  readonly type: 'refreshComplete';
+}
+
 interface SetCompareModeMessage {
   readonly type: 'setCompareMode';
   readonly mode: CompareViewMode;
@@ -146,7 +150,11 @@ export class CompareView {
 
     if (isRefreshMessage(message)) {
       if (this.currentResult) {
-        await this.onRefresh(this.currentResult.leftRef, this.currentResult.rightRef);
+        try {
+          await this.onRefresh(this.currentResult.leftRef, this.currentResult.rightRef);
+        } finally {
+          void this.panel.webview.postMessage({ type: 'refreshComplete' } satisfies RefreshCompleteMessage);
+        }
       }
       return;
     }

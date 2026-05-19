@@ -1,6 +1,6 @@
 # Compare Branches — Refresh Button
 
-**Date:** 2026-05-19  
+**Date:** 2026-05-19
 **Status:** Approved
 
 ## Summary
@@ -13,7 +13,7 @@ Location: `.filter-actions` div in `compareView.hbs`, to the left of the existin
 
 - Icon-only button (`⟳`), tooltip "Refresh"
 - Styled to match the existing outline button aesthetics
-- Disabled immediately on click to prevent double-fire; re-enables naturally when `render()` replaces the webview HTML
+- Disabled immediately on click to prevent double-fire; re-enables naturally when `render()` replaces the webview HTML or through a completion message if refresh fails
 
 ## Message Protocol
 

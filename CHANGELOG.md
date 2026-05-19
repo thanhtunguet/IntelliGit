@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 ### Added
 - **Compare Branches — Message filter (fuzzy)** — new "Message" field in the filter row, before "Author", uses case-insensitive subsequence matching (type "mvw" to match "Move View Wrapper").
 - **Compare Branches — Graph mode** — new List / Graph toggle in the filter row. Graph mode renders an inline SVG showing the two branches diverging from their merge base (left lane, right lane, joined at the bottom). Existing filters dim non-matching commits in graph mode so the topology stays visible; clicking a node opens commit details the same as a list row click. The selected mode persists per workspace.
+- **Compare Branches — Refresh** — the compare webview now has a refresh button that refetches commits for the current left/right refs without reopening the panel and recovers cleanly if the refresh fails.
+- **Compare with Revision — QuickPick refresh** — the revision picker now opens from cached refs first, lazily loads refs when empty, and offers a refresh button to update stale or partially loaded branch/tag lists without closing the picker.
 
 ### Changed
 - **Branches view — progressive loading** — the Branches view now appears in three phases instead of waiting for everything before showing anything: local branches first, then remote branches, then tags. Tags are published in a single emit with their per-remote availability already merged in (so tag icons do not flicker between "no remote" and "available on remotes"). If the network-bound `git ls-remote --tags` step fails, tags still render without remote icons rather than blanking the section.

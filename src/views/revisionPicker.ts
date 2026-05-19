@@ -101,6 +101,7 @@ export async function pickRevisionToCompare(
 ): Promise<RevisionSelection | undefined> {
   return new Promise<RevisionSelection | undefined>((resolve) => {
     let resolved = false;
+    let disposed = false;
 
     const settle = (value: RevisionSelection | undefined): void => {
       if (resolved) {
@@ -113,6 +114,11 @@ export async function pickRevisionToCompare(
     const qp = vscode.window.createQuickPick<RevisionPickerItem>();
     qp.placeholder = 'Select a branch, tag, or type a commit SHA…';
     qp.matchOnDescription = true;
+    const refreshButton: vscode.QuickInputButton = {
+      iconPath: new vscode.ThemeIcon('refresh'),
+      tooltip: 'Refresh branches and tags'
+    };
+    qp.buttons = [refreshButton];
 
     let baseItems = buildRevisionPickerItems(getBranches(), getTags());
     qp.items = baseItems;
@@ -120,6 +126,42 @@ export async function pickRevisionToCompare(
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let lookupSeq = 0;
     let syntheticItem: RevisionPickerItem | undefined;
+    let refreshing = false;
+
+    const applyBaseItems = () => {
+      baseItems = buildRevisionPickerItems(getBranches(), getTags());
+      qp.items = syntheticItem ? [syntheticItem, ...baseItems] : baseItems;
+    };
+
+    const refreshItems = (placeholder: string): void => {
+      if (refreshing) {
+        return;
+      }
+      refreshing = true;
+      qp.busy = true;
+      qp.placeholder = placeholder;
+      void onRefresh()
+        .then(() => {
+          if (disposed) {
+            return;
+          }
+          applyBaseItems();
+          qp.placeholder = baseItems.length > 0
+            ? 'Select a branch, tag, or type a commit SHA…'
+            : 'No branches found — type a commit SHA';
+        })
+        .catch(() => {
+          if (!disposed) {
+            qp.placeholder = 'Failed to load branches and tags';
+          }
+        })
+        .finally(() => {
+          refreshing = false;
+          if (!disposed) {
+            qp.busy = false;
+          }
+        });
+    };
 
     const clearSynthetic = () => {
       if (syntheticItem) {
@@ -185,29 +227,21 @@ export async function pickRevisionToCompare(
         clearTimeout(debounceTimer);
         debounceTimer = undefined;
       }
+      disposed = true;
       qp.dispose();
       settle(undefined);
+    });
+
+    qp.onDidTriggerButton((button) => {
+      if (button === refreshButton) {
+        refreshItems('Refreshing branches and tags…');
+      }
     });
 
     qp.show();
 
     if (qp.items.length === 0) {
-      qp.busy = true;
-      qp.placeholder = 'Loading branches and tags…';
-      void onRefresh()
-        .then(() => {
-          baseItems = buildRevisionPickerItems(getBranches(), getTags());
-          qp.items = baseItems;
-          qp.placeholder = baseItems.length > 0
-            ? 'Select a branch, tag, or type a commit SHA…'
-            : 'No branches found — type a commit SHA';
-        })
-        .catch(() => {
-          qp.placeholder = 'Failed to load branches';
-        })
-        .finally(() => {
-          qp.busy = false;
-        });
+      refreshItems('Loading branches and tags…');
     }
   });
 }

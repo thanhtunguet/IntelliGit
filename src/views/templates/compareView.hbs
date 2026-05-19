@@ -269,7 +269,7 @@
         <button id="mode-toggle-list" type="button" role="tab" aria-selected="{{#if isListMode}}true{{else}}false{{/if}}" class="{{#if isListMode}}active{{/if}}" data-mode="list">List</button>
         <button id="mode-toggle-graph" type="button" role="tab" aria-selected="{{#if isGraphMode}}true{{else}}false{{/if}}" class="{{#if isGraphMode}}active{{/if}}" data-mode="graph">Graph</button>
       </div>
-      <button id="btn-refresh" type="button" title="Refresh">⟳</button>
+      <button id="btn-refresh" type="button" title="Refresh" aria-label="Refresh">⟳</button>
       <button id="filter-clear" class="filter-clear" type="button">Clear filters</button>
     </div>
     {{> partials/molecules/textFilterField
@@ -940,13 +940,22 @@
       });
     }
     const refreshBtn = document.getElementById('btn-refresh');
+    const setRefreshLoading = (loading) => {
+      if (!refreshBtn) { return; }
+      refreshBtn.disabled = loading;
+      refreshBtn.classList.toggle('loading', loading);
+    };
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => {
-        refreshBtn.disabled = true;
-        refreshBtn.classList.add('loading');
+        setRefreshLoading(true);
         vscode.postMessage({ type: 'refresh' });
       });
     }
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'refreshComplete') {
+        setRefreshLoading(false);
+      }
+    });
     const sendModeChange = (mode) => {
       if (mode !== compareViewMode) {
         vscode.postMessage({ type: 'setCompareMode', mode });
