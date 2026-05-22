@@ -1066,9 +1066,9 @@ export class CommandController {
         return;
       }
 
-      await this.git.revertCommitFiles(target.sha, target.filePaths, target.subject);
+      await this.git.revertCommitFiles(target.sha, target.filePaths);
       await this.state.refreshAll();
-      void vscode.window.showInformationMessage(`Reverted selected changes from ${target.sha.slice(0, 8)}.`);
+      void vscode.window.showInformationMessage(`Reverted selected changes from ${target.sha.slice(0, 8)} in the current checkout.`);
     });
 
     register('vscodeGitClient.commit.cherryPickSelectedChanges', async (arg?: unknown, selected?: unknown) => {
@@ -1092,9 +1092,9 @@ export class CommandController {
         return;
       }
 
-      await this.git.cherryPickCommitFiles(target.sha, target.filePaths, target.subject);
+      await this.git.cherryPickCommitFiles(target.sha, target.filePaths);
       const refreshPromise = this.state.refreshAll();
-      void vscode.window.showInformationMessage(`Cherry-picked selected changes from ${target.sha.slice(0, 8)}.`);
+      void vscode.window.showInformationMessage(`Cherry-picked selected changes from ${target.sha.slice(0, 8)} into the current checkout.`);
       await refreshPromise;
     });
 

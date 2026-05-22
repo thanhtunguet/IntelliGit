@@ -824,16 +824,8 @@ export class GitService {
     await this.runGit(['cherry-pick', ref]);
   }
 
-  async cherryPickCommitFiles(ref: string, filePaths: string[], subject?: string): Promise<void> {
+  async cherryPickCommitFiles(ref: string, filePaths: string[]): Promise<void> {
     await this.applyCommitFilesPatch(ref, filePaths, false);
-    const staged = await this.getStagedFiles();
-    if (staged.length === 0) {
-      return;
-    }
-
-    const title = subject?.trim() || ref.slice(0, 8);
-    const message = `Cherry-pick selected changes from ${ref.slice(0, 8)} ${title}`.trim();
-    await this.runGit(['commit', '-m', message]);
   }
 
   async cherryPickRange(fromExclusive: string, toInclusive: string): Promise<void> {
@@ -844,16 +836,8 @@ export class GitService {
     await this.runGit(['revert', ref]);
   }
 
-  async revertCommitFiles(ref: string, filePaths: string[], subject?: string): Promise<void> {
+  async revertCommitFiles(ref: string, filePaths: string[]): Promise<void> {
     await this.applyCommitFilesPatch(ref, filePaths, true);
-    const staged = await this.getStagedFiles();
-    if (staged.length === 0) {
-      return;
-    }
-
-    const title = subject?.trim() || ref.slice(0, 8);
-    const message = `Revert selected changes from ${ref.slice(0, 8)} ${title}`.trim();
-    await this.runGit(['commit', '-m', message]);
   }
 
   async resetCurrent(ref: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
@@ -1787,7 +1771,7 @@ export class GitService {
       return;
     }
 
-    const args = ['apply', '--index', '--3way', '--whitespace=nowarn'];
+    const args = ['apply', '--3way', '--whitespace=nowarn'];
     if (reverse) {
       args.push('-R');
     }

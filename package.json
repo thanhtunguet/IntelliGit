@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "VS Code Git Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows.",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "publisher": "thanhtunguet",
   "icon": "media/vscodegitclient.png",
   "main": "./dist/extension.js",
@@ -837,7 +837,7 @@
         },
         {
           "command": "vscodeGitClient.graph.openFileDiff",
-          "when": "view == vscodeGitClient.graph && viewItem == graphCommitFile",
+          "when": "view == vscodeGitClient.graph && viewItem =~ /graphCommitFile/",
           "group": "navigation"
         },
         {
@@ -887,13 +887,18 @@
         },
         {
           "command": "vscodeGitClient.commit.revertSelectedChanges",
-          "when": "view == vscodeGitClient.graph && viewItem == graphCommitFile",
+          "when": "view == vscodeGitClient.graph && viewItem =~ /graphCommitFile/ && viewItem =~ /graphCommitFileCanRevert/",
           "group": "navigation@5"
         },
         {
           "command": "vscodeGitClient.commit.cherryPickSelectedChanges",
-          "when": "view == vscodeGitClient.graph && viewItem == graphCommitFile",
+          "when": "view == vscodeGitClient.graph && viewItem =~ /graphCommitFile/ && viewItem =~ /graphCommitFileCanCherryPick/",
           "group": "navigation@6"
+        },
+        {
+          "command": "vscodeGitClient.commit.createPatchSelectedChanges",
+          "when": "view == vscodeGitClient.graph && viewItem =~ /graphCommitFile/",
+          "group": "navigation@7"
         },
         {
           "command": "vscodeGitClient.worktree.openInNewWindow",

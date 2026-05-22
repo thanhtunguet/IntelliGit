@@ -43,11 +43,14 @@ export class GraphCommitFileTreeItem extends vscode.TreeItem {
   constructor(
     public readonly commit: GraphCommit,
     public readonly filePath: string,
-    workspaceRoot: string
+    workspaceRoot: string,
+    canRevertSelectedChanges: boolean
   ) {
     const fileName = filePath.split('/').at(-1) ?? filePath;
     super(fileName, vscode.TreeItemCollapsibleState.None);
-    this.contextValue = 'graphCommitFile';
+    this.contextValue = canRevertSelectedChanges
+      ? 'graphCommitFile graphCommitFileCanRevert'
+      : 'graphCommitFile graphCommitFileCanCherryPick';
     this.id = `commitFile:${commit.sha}:${filePath}`;
     this.resourceUri = vscode.Uri.file(`${workspaceRoot}/${filePath}`);
     this.tooltip = `${filePath}\n${commit.shortSha} ${commit.subject}\nOpen Commit File Diff`;
@@ -65,7 +68,8 @@ function buildFileTree(
   commit: GraphCommit,
   files: string[],
   basePath: string,
-  workspaceRoot: string
+  workspaceRoot: string,
+  canRevertSelectedChanges: boolean
 ): GraphNode[] {
   const folders = new Map<string, string[]>();
   const leaves: GraphCommitFileTreeItem[] = [];
@@ -74,7 +78,7 @@ function buildFileTree(
     const relative = basePath ? file.slice(basePath.length + 1) : file;
     const slashIdx = relative.indexOf('/');
     if (slashIdx === -1) {
-      leaves.push(new GraphCommitFileTreeItem(commit, file, workspaceRoot));
+      leaves.push(new GraphCommitFileTreeItem(commit, file, workspaceRoot, canRevertSelectedChanges));
     } else {
       const segment = relative.slice(0, slashIdx);
       const childPath = basePath ? `${basePath}/${segment}` : segment;
@@ -97,12 +101,16 @@ export class GraphTreeProvider implements vscode.TreeDataProvider<GraphNode> {
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.emitter.event;
   private readonly commitFilesCache = new Map<string, string[]>();
+  private readonly commitAncestryCache = new Map<string, boolean>();
 
   constructor(
     private readonly state: StateStore,
     private readonly git: GitService
   ) {
-    this.state.onDidChange(() => this.emitter.fire());
+    this.state.onDidChange(() => {
+      this.commitAncestryCache.clear();
+      this.emitter.fire();
+    });
   }
 
   refresh(): void {
@@ -122,13 +130,26 @@ export class GraphTreeProvider implements vscode.TreeDataProvider<GraphNode> {
         this.commitFilesCache.set(commitSha, files);
       }
 
-      return buildFileTree(element.commit, files, '', this.git.rootPath);
+      const canRevertSelectedChanges = await this.canRevertSelectedChanges(commitSha);
+      return buildFileTree(element.commit, files, '', this.git.rootPath, canRevertSelectedChanges);
     }
 
     if (element instanceof GraphCommitFolderTreeItem) {
-      return buildFileTree(element.commit, element.files, element.folderPath, this.git.rootPath);
+      const canRevertSelectedChanges = await this.canRevertSelectedChanges(element.commit.sha);
+      return buildFileTree(element.commit, element.files, element.folderPath, this.git.rootPath, canRevertSelectedChanges);
     }
 
     return this.state.graph.map((commit) => new GraphCommitTreeItem(commit));
+  }
+
+  private async canRevertSelectedChanges(sha: string): Promise<boolean> {
+    const cached = this.commitAncestryCache.get(sha);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const canRevertSelectedChanges = await this.git.isCommitInCurrentBranch(sha);
+    this.commitAncestryCache.set(sha, canRevertSelectedChanges);
+    return canRevertSelectedChanges;
   }
 }

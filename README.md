@@ -69,7 +69,7 @@ From a commit you can:
 - Go to a parent or child commit.
 - Multi-select commits with `Shift`, `Ctrl`, or `Cmd`; unsupported context-menu actions are disabled.
 
-`Commit Details` also supports selected-file actions: revert selected changes, cherry-pick selected changes, and create a patch from selected file changes.
+`Commit Details` and expanded Git Graph file rows also support selected-file actions: revert selected changes, cherry-pick selected changes into the current checkout, and create a patch from selected file changes.
 
 ### Filter Commit History
 
