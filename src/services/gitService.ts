@@ -1048,6 +1048,40 @@ export class GitService {
     return result.stdout;
   }
 
+  async canApplyPatchToWorkingTree(patch: string): Promise<boolean> {
+    if (!patch.trim()) {
+      return false;
+    }
+
+    try {
+      await this.runGitWithStdin(['apply', '--check', '--3way', '--whitespace=nowarn'], patch);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async isPatchAlreadyApplied(patch: string): Promise<boolean> {
+    if (!patch.trim()) {
+      return false;
+    }
+
+    try {
+      await this.runGitWithStdin(['apply', '--check', '--reverse', '--whitespace=nowarn'], patch);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async applyPatchToWorkingTree(patch: string): Promise<void> {
+    if (!patch.trim()) {
+      return;
+    }
+
+    await this.runGitWithStdin(['apply', '--3way', '--whitespace=nowarn'], patch);
+  }
+
   async getCompare(leftRef: string, rightRef: string): Promise<CompareResult> {
     const leftOnly = await this.runGit([
       'log',
@@ -1771,11 +1805,11 @@ export class GitService {
       return;
     }
 
-    const args = ['apply', '--3way', '--whitespace=nowarn'];
     if (reverse) {
-      args.push('-R');
+      await this.runGitWithStdin(['apply', '--3way', '--whitespace=nowarn', '-R'], patch);
+      return;
     }
-    await this.runGitWithStdin(args, patch);
+    await this.applyPatchToWorkingTree(patch);
   }
 
   private async runGitWithStdin(args: string[], stdin: string): Promise<GitCommandResult> {

@@ -19,7 +19,7 @@ export class CommitFileTreeItem extends vscode.TreeItem {
     this.description = this.description.padStart(2, ' ');
     this.tooltip = `${filePath}\n${statusTitle(status)}`;
     this.command = {
-      title: 'Open Commit File Diff',
+      title: 'Open Diffs',
       command: 'vscodeGitClient.graph.openFileDiff',
       arguments: [this]
     };
@@ -44,7 +44,7 @@ export class CommitRangeFileTreeItem extends vscode.TreeItem {
     this.description = statusBadge(status).padStart(2, ' ');
     this.tooltip = `${filePath}\n${statusTitle(status)}\n${fromLabel} ↔ ${toLabel}`;
     this.command = {
-      title: 'Open Commit Range File Diff',
+      title: 'Open Diffs',
       command: 'vscodeGitClient.graph.openFileDiff',
       arguments: [this]
     };
@@ -221,6 +221,10 @@ export class CommitFilesTreeProvider implements vscode.TreeDataProvider<CommitVi
     await vscode.commands.executeCommand('setContext', 'vscodeGitClient.commitViewCanRevertSelected', canRevert);
     await vscode.commands.executeCommand('setContext', 'vscodeGitClient.commitViewCanCherryPickSelected', !canRevert);
     await vscode.commands.executeCommand(`${CommitFilesTreeProviderViewId}.focus`);
+  }
+
+  isShowingCommit(sha: string): boolean {
+    return this.activeState?.mode === 'commit' && this.activeState.sha === sha;
   }
 
   async showRevision(sha: string): Promise<void> {

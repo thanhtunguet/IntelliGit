@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "VS Code Git Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows.",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "publisher": "thanhtunguet",
   "icon": "media/vscodegitclient.png",
   "main": "./dist/extension.js",
@@ -257,7 +257,7 @@
       },
       {
         "command": "vscodeGitClient.graph.openFileDiff",
-        "title": "Open Commit File Diff"
+        "title": "Open Diffs"
       },
       {
         "command": "vscodeGitClient.graph.checkoutCommit",
@@ -445,6 +445,10 @@
       {
         "command": "vscodeGitClient.commit.createPatchSelectedChanges",
         "title": "Create Patch from Selected Changes"
+      },
+      {
+        "command": "vscodeGitClient.commit.applyPatch",
+        "title": "Apply Patch to Working Tree"
       },
       {
         "command": "vscodeGitClient.worktree.refresh",
@@ -866,6 +870,11 @@
           "group": "navigation@4"
         },
         {
+          "command": "vscodeGitClient.graph.openFileDiff",
+          "when": "view == vscodeGitClient.commitView && viewItem == commitViewFile",
+          "group": "navigation@0"
+        },
+        {
           "command": "vscodeGitClient.commit.revertSelectedChanges",
           "when": "view == vscodeGitClient.commitView && viewItem == commitViewFile && vscodeGitClient.commitViewCanRevertSelected",
           "group": "navigation@1"
@@ -877,7 +886,7 @@
         },
         {
           "command": "vscodeGitClient.commit.createPatchSelectedChanges",
-          "when": "view == vscodeGitClient.commitView && viewItem == commitViewFile",
+          "when": "view == vscodeGitClient.commitView && viewItem == commitViewFile && vscodeGitClient.commitViewCanCherryPickSelected",
           "group": "navigation@3"
         },
         {
@@ -897,7 +906,7 @@
         },
         {
           "command": "vscodeGitClient.commit.createPatchSelectedChanges",
-          "when": "view == vscodeGitClient.graph && viewItem =~ /graphCommitFile/",
+          "when": "view == vscodeGitClient.graph && viewItem =~ /graphCommitFile/ && viewItem =~ /graphCommitFileCanCherryPick/",
           "group": "navigation@7"
         },
         {

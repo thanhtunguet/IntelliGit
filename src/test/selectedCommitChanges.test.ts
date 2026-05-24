@@ -47,7 +47,9 @@ function registerController(
     {
       getCommitActionContext: () => undefined,
       getAllFileItems: () => [],
-      showCommit: async () => undefined
+      showCommit: async () => undefined,
+      clear: async () => undefined,
+      isShowingCommit: () => false
     }
   );
 

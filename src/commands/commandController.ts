@@ -59,6 +59,8 @@ export class CommandController {
       getCommitActionContext(selectedItems: readonly CommitFileTreeItem[]): CommitActionContext | undefined;
       getAllFileItems(): CommitFileTreeItem[];
       showCommit(sha: string, subject: string): Promise<void>;
+      clear(): Promise<void>;
+      isShowingCommit(sha: string): boolean;
     }
   ) { }
 
@@ -220,8 +222,41 @@ export class CommandController {
         const trimmed = value.trim();
         return trimmed || undefined;
       }
+      if (typeof value === 'object' && value !== null && 'sha' in value && typeof (value as { sha?: unknown }).sha === 'string') {
+        const sha = ((value as { sha: string }).sha ?? '').trim();
+        if (sha) {
+          return sha;
+        }
+      }
       const tag = asTagItem(value)?.tag;
       return asGraphItem(value)?.commit.sha ?? tag?.sha ?? tag?.name;
+    };
+    const toCommitSubject = (value: unknown): string | undefined => {
+      if (asGraphItem(value)) {
+        const subject = asGraphItem(value)?.commit.subject?.trim();
+        return subject || undefined;
+      }
+      if (typeof value === 'object' && value !== null && 'subject' in value && typeof (value as { subject?: unknown }).subject === 'string') {
+        const subject = ((value as { subject: string }).subject ?? '').trim();
+        return subject || undefined;
+      }
+      return undefined;
+    };
+    const resolveCommitSubject = (sha: string, argValue: unknown, selectedArgValue: unknown): string => {
+      const candidates = [
+        argValue,
+        ...(Array.isArray(selectedArgValue) ? selectedArgValue : [])
+      ];
+      for (const candidate of candidates) {
+        if (toCommitSha(candidate) !== sha) {
+          continue;
+        }
+        const subject = toCommitSubject(candidate);
+        if (subject) {
+          return subject;
+        }
+      }
+      return this.state.graph.find((commit) => commit.sha === sha)?.subject ?? sha;
     };
     const toGraphCommitShas = (arg: unknown, selectedArg: unknown): string[] => {
       const selectedItems = Array.isArray(selectedArg) ? selectedArg : [];
@@ -777,17 +812,12 @@ export class CommandController {
         }
         selectedShas.push(picked);
       }
-
-      for (const sha of selectedShas) {
-        const subject = this.state.graph.find((commit) => commit.sha === sha)?.subject ?? sha;
-        await this.commitFilesView.showCommit(sha, subject);
-        if (shouldOpenFirstDiff) {
-          const firstFile = this.commitFilesView.getAllFileItems()[0];
-          if (firstFile) {
-            await this.editor.openCommitFileDiffWithStatus(sha, firstFile.filePath, firstFile.status);
-          }
-        }
+      const sha = selectedShas[0];
+      if (!sha) {
+        return;
       }
+      const subject = resolveCommitSubject(sha, arg, selected);
+      await this.openCommitDetails(sha, subject, { openFirstDiff: shouldOpenFirstDiff, allowToggle: true });
     });
 
     register('vscodeGitClient.graph.copyCommitId', async (arg?: unknown, selected?: unknown) => {
@@ -820,7 +850,11 @@ export class CommandController {
       );
     });
 
-    register('vscodeGitClient.graph.openFileDiff', async (arg?: unknown) => {
+    register('vscodeGitClient.graph.openFileDiff', async (arg?: unknown, selected?: unknown) => {
+      if (await this.openSelectedFileDiffs(arg, selected)) {
+        return;
+      }
+
       const item = asGraphFileItem(arg);
       if (item) {
         await this.editor.openCommitFileDiff(item.commit.sha, item.filePath);
@@ -1105,17 +1139,66 @@ export class CommandController {
         return;
       }
 
+      if (!target.canCherryPick) {
+        void vscode.window.showWarningMessage('Selected files belong to a commit that is already in the current branch.');
+        return;
+      }
+
       const patch = await this.git.getPatchForCommitFiles(target.sha, target.filePaths);
       if (!patch.trim()) {
         void vscode.window.showInformationMessage('No patch content generated for the selected files.');
         return;
       }
 
-      const doc = await vscode.workspace.openTextDocument({
-        language: 'diff',
-        content: patch
+      const output = await this.pickPatchOutputTarget('Create Patch from Selected Changes');
+      if (!output) {
+        return;
+      }
+
+      const patchFileName = '@unnamed.patch';
+      if (output === 'clipboard') {
+        await vscode.env.clipboard.writeText(patch);
+      } else {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const defaultUri = workspaceRoot ? vscode.Uri.joinPath(workspaceRoot, patchFileName) : undefined;
+        const targetUri = await vscode.window.showSaveDialog({
+          title: 'Save Patch File',
+          saveLabel: 'Save',
+          defaultUri,
+          filters: {
+            Patch: ['patch', 'diff']
+          }
+        });
+        if (!targetUri) {
+          return;
+        }
+        await vscode.workspace.fs.writeFile(targetUri, Buffer.from(patch, 'utf8'));
+      }
+
+      await this.applyPatchToWorkingTree(patch, { source: `selected changes from ${target.sha.slice(0, 8)}` });
+    });
+
+    register('vscodeGitClient.commit.applyPatch', async () => {
+      const source = await this.pickPatchSource();
+      if (!source) {
+        return;
+      }
+
+      const patch = source.kind === 'clipboard'
+        ? (await vscode.env.clipboard.readText())
+        : (await this.readPatchFromFile());
+      if (patch === undefined) {
+        return;
+      }
+
+      if (!patch.trim()) {
+        void vscode.window.showWarningMessage('Patch content is empty.');
+        return;
+      }
+
+      await this.applyPatchToWorkingTree(patch, {
+        source: source.kind === 'clipboard' ? 'clipboard' : 'patch file'
       });
-      await vscode.window.showTextDocument(doc, { preview: false });
     });
 
     register('vscodeGitClient.graph.compareWithCurrent', async (arg?: unknown) => {
@@ -1213,11 +1296,7 @@ export class CommandController {
         await vscode.commands.executeCommand('vscodeGitClient.graph.openDetails', new GraphCommitTreeItem(graphCommit));
       } else {
         const subject = (await this.git.getCommitDetails(parent)).commit.subject;
-        await this.commitFilesView.showCommit(parent, subject);
-        const firstFile = this.commitFilesView.getAllFileItems()[0];
-        if (firstFile) {
-          await this.editor.openCommitFileDiffWithStatus(parent, firstFile.filePath, firstFile.status);
-        }
+        await this.openCommitDetails(parent, subject, { openFirstDiff: true });
       }
     });
 
@@ -1252,11 +1331,7 @@ export class CommandController {
         await vscode.commands.executeCommand('vscodeGitClient.graph.openDetails', new GraphCommitTreeItem(graphCommit));
       } else {
         const subject = (await this.git.getCommitDetails(child)).commit.subject;
-        await this.commitFilesView.showCommit(child, subject);
-        const firstFile = this.commitFilesView.getAllFileItems()[0];
-        if (firstFile) {
-          await this.editor.openCommitFileDiffWithStatus(child, firstFile.filePath, firstFile.status);
-        }
+        await this.openCommitDetails(child, subject, { openFirstDiff: true });
       }
     });
 
@@ -1335,7 +1410,7 @@ export class CommandController {
             await this.state.clearGraphFilters();
             await vscode.commands.executeCommand('setContext', 'vscodeGitClient.graphFilterActive', false);
           },
-          openCommitDetails: async (sha, subject) => this.commitFilesView.showCommit(sha, subject),
+          openCommitDetails: async (sha, subject) => this.openCommitDetails(sha, subject, { allowToggle: true }),
           openCommitRangeDetails: async (shas) => this.editor.openCommitRangeDetails(shas),
           getCommitFiles: async (sha) => this.git.getFilesInCommit(sha),
           openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath)
@@ -2196,7 +2271,7 @@ export class CommandController {
         commits: this.state.graph
       },
       {
-        openCommitDetails: async (sha, subject) => this.commitFilesView.showCommit(sha, subject),
+        openCommitDetails: async (sha, subject) => this.openCommitDetails(sha, subject, { allowToggle: true }),
         getCommitFiles: async (sha) => this.git.getFilesInCommit(sha),
         openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath)
       }
@@ -2228,6 +2303,7 @@ export class CommandController {
       { label: 'Open stash patch preview', run: async () => vscode.commands.executeCommand('vscodeGitClient.stash.previewPatch') },
       { label: 'Open compare branches', run: async () => vscode.commands.executeCommand('vscodeGitClient.compare.open') },
       { label: 'Open diff workflow', run: async () => vscode.commands.executeCommand('vscodeGitClient.diff.open') },
+      { label: 'Apply patch to working tree', run: async () => vscode.commands.executeCommand('vscodeGitClient.commit.applyPatch') },
       { label: 'Open merge conflict', run: async () => vscode.commands.executeCommand('vscodeGitClient.merge.openConflict') },
       { label: 'Filter graph', run: async () => vscode.commands.executeCommand('vscodeGitClient.graph.filter') },
       { label: 'Clear graph filters', run: async () => vscode.commands.executeCommand('vscodeGitClient.graph.clearFilter') },
@@ -2697,6 +2773,159 @@ export class CommandController {
     }
 
     return this.git.toRepoRelative(uri.fsPath);
+  }
+
+  private async openCommitDetails(
+    sha: string,
+    subject: string,
+    options: { openFirstDiff?: boolean; allowToggle?: boolean } = {}
+  ): Promise<void> {
+    if (options.allowToggle && this.commitFilesView.isShowingCommit(sha)) {
+      await this.commitFilesView.clear();
+      return;
+    }
+
+    await this.commitFilesView.showCommit(sha, subject);
+    if (!options.openFirstDiff) {
+      return;
+    }
+
+    const firstFile = this.commitFilesView.getAllFileItems()[0];
+    if (!firstFile) {
+      return;
+    }
+
+    await this.editor.openCommitFileDiffWithStatus(sha, firstFile.filePath, firstFile.status);
+  }
+
+  private async openSelectedFileDiffs(arg: unknown, selectedArg: unknown): Promise<boolean> {
+    const selectedItems = this.toSelectedItems(arg, selectedArg);
+    const commitViewItems = selectedItems.filter((item): item is CommitFileTreeItem => item instanceof CommitFileTreeItem);
+    if (commitViewItems.length > 0) {
+      const ordered = [...new Map(
+        commitViewItems.map((item) => [`${item.sha}:${item.filePath}:${item.status}`, item] as const)
+      ).values()].sort((a, b) => a.filePath.localeCompare(b.filePath));
+      for (const item of ordered) {
+        await this.editor.openCommitFileDiffWithStatus(item.sha, item.filePath, item.status);
+      }
+      return true;
+    }
+
+    const graphItems = selectedItems.filter((item): item is GraphCommitFileTreeItem => item instanceof GraphCommitFileTreeItem);
+    if (graphItems.length > 0) {
+      const ordered = [...new Map(
+        graphItems.map((item) => [`${item.commit.sha}:${item.filePath}`, item] as const)
+      ).values()].sort((a, b) => a.filePath.localeCompare(b.filePath));
+      for (const item of ordered) {
+        await this.editor.openCommitFileDiff(item.commit.sha, item.filePath);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  private async pickPatchOutputTarget(title: string): Promise<'clipboard' | 'file' | undefined> {
+    const picked = await vscode.window.showQuickPick(
+      [
+        {
+          label: 'Save to patch file',
+          description: 'Write patch text to a .patch/.diff file',
+          target: 'file' as const
+        },
+        {
+          label: 'Copy patch to clipboard',
+          description: 'Copy patch text so you can paste it anywhere',
+          target: 'clipboard' as const
+        }
+      ],
+      {
+        title
+      }
+    );
+    return picked?.target;
+  }
+
+  private async pickPatchSource(): Promise<{ kind: 'clipboard' | 'file' } | undefined> {
+    const picked = await vscode.window.showQuickPick(
+      [
+        {
+          label: 'Apply patch from clipboard',
+          description: 'Use patch text currently in clipboard',
+          source: 'clipboard' as const
+        },
+        {
+          label: 'Apply patch from file',
+          description: 'Pick a .patch/.diff file from disk',
+          source: 'file' as const
+        }
+      ],
+      {
+        title: 'Apply Patch'
+      }
+    );
+    return picked ? { kind: picked.source } : undefined;
+  }
+
+  private async readPatchFromFile(): Promise<string | undefined> {
+    const picked = await vscode.window.showOpenDialog({
+      title: 'Select Patch File',
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      filters: {
+        Patch: ['patch', 'diff'],
+        Text: ['txt']
+      }
+    });
+    const uri = picked?.[0];
+    if (!uri) {
+      return undefined;
+    }
+
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    return Buffer.from(bytes).toString('utf8');
+  }
+
+  private async applyPatchToWorkingTree(
+    patch: string,
+    context: { source: string }
+  ): Promise<void> {
+    const changes = await this.git.getChangedFiles();
+    const isClean = changes.length === 0;
+    const canApply = await this.git.canApplyPatchToWorkingTree(patch);
+
+    if (!canApply) {
+      const alreadyApplied = await this.git.isPatchAlreadyApplied(patch);
+      if (alreadyApplied) {
+        void vscode.window.showInformationMessage('Nothing to cherry pick.');
+        return;
+      }
+      if (isClean) {
+        void vscode.window.showWarningMessage(
+          'Cannot apply this patch on the current HEAD. Rebase/cherry-pick the base commit first or use a compatible branch.'
+        );
+      } else {
+        void vscode.window.showWarningMessage(
+          'Cannot apply patch cleanly on the current working tree. Stash/commit your changes or resolve conflicts first.'
+        );
+      }
+      return;
+    }
+
+    try {
+      await this.git.applyPatchToWorkingTree(patch);
+    } catch (error) {
+      const alreadyApplied = await this.git.isPatchAlreadyApplied(patch);
+      if (alreadyApplied) {
+        void vscode.window.showInformationMessage('Nothing to cherry pick.');
+        return;
+      }
+      throw error;
+    }
+
+    await this.state.refreshAll();
+    void vscode.window.showInformationMessage(`Applied patch from ${context.source} to the current working tree.`);
   }
 
   private async resolveSelectedCommitFiles(

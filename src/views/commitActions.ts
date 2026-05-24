@@ -57,6 +57,13 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
 
   switch (message.action) {
     case 'openDetails':
+      if (normalizedShas.length === 1) {
+        await vscode.commands.executeCommand('vscodeGitClient.graph.openDetails', {
+          sha,
+          subject: normalizedSubjects[0] ?? message.subject
+        });
+        return;
+      }
       await runForEachSha('vscodeGitClient.graph.openDetails');
       return;
     case 'copyCommitId':

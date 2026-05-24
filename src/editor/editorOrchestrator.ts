@@ -275,6 +275,10 @@ export class EditorOrchestrator {
     if (!this.compareView) {
       this.compareView = new CompareView(
         async (sha, subject) => {
+          if (this.commitFilesView.isShowingCommit(sha)) {
+            await this.commitFilesView.clear();
+            return;
+          }
           await this.commitFilesView.showCommit(sha, subject);
         },
         async (selection) => {

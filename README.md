@@ -60,7 +60,7 @@ Open `Git Graph` for a tree-style commit list with refs, author/date metadata, s
 
 From a commit you can:
 
-- Open `Commit Details` and immediately inspect changed files.
+- Open `Commit Details` and immediately inspect changed files; click the same commit again to hide the details pane.
 - Open file diffs against the commit parent.
 - Checkout the commit in detached mode.
 - Create a branch or tag at that commit.
@@ -69,7 +69,9 @@ From a commit you can:
 - Go to a parent or child commit.
 - Multi-select commits with `Shift`, `Ctrl`, or `Cmd`; unsupported context-menu actions are disabled.
 
-`Commit Details` and expanded Git Graph file rows also support selected-file actions: revert selected changes, cherry-pick selected changes into the current checkout, and create a patch from selected file changes.
+`Commit Details` and expanded Git Graph file rows also support selected-file actions: `Open Diffs` (single or multi-select), branch-aware `Revert Selected Changes` / `Cherry-pick Selected Changes`, and `Create Patch from Selected Changes` (save to file or copy to clipboard, then apply to the current working tree).
+
+You can also run `Apply Patch to Working Tree` from the Command Palette to apply patch text from clipboard or a patch file.
 
 ### Filter Commit History
 
@@ -296,7 +298,7 @@ Key command IDs, not exhaustive:
 - `vscodeGitClient.tag.*` - Checkout, checkoutNewBranch, copyRevisionNumber, showRepositoryAtRevision, compareWithCurrent, createPatch, openCommits
 - `vscodeGitClient.stash.*` - Create, apply, pop, drop, rename, previewPatch, unshelve
 - `vscodeGitClient.graph.*` - openDetails, openFileDiff, checkoutCommit, createBranchHere, createTagHere, cherryPick, cherryPickRange, revert, rebaseInteractiveFromHere, compareWithCurrent, createPatch, showRepositoryAtRevision, openRepositoryFileAtRevision, goToParentCommit, filter, clearFilter
-- `vscodeGitClient.commit.*` - revertSelectedChanges, cherryPickSelectedChanges, amend
+- `vscodeGitClient.commit.*` - revertSelectedChanges, cherryPickSelectedChanges, createPatchSelectedChanges, applyPatch, amend
 - `vscodeGitClient.compare.open` - Open branch comparison
 - `vscodeGitClient.compareWithRevision` - Compare Explorer files or folders with a revision
 - `vscodeGitClient.merge.*` - openConflict, next, previous, finalize
@@ -316,6 +318,7 @@ Legacy `intelliGit.*` command aliases are registered after activation so existin
 - Native Git CLI required on the system path, or configure `vscodeGitClient.gitPath`.
 - Built-in VS Code merge and diff editors are used for reliability.
 - Git Graph is tree-based rendering with glyph hints, not a custom canvas DAG.
+- IntelliJ-style binary-patch behavior for selected-change patch workflows is not fully replicated yet; the current create/apply patch flow is optimized for text-based patches.
 - AI commit message generation requires a compatible language model provider and times out gracefully if unavailable.
 - PR and issue tracker integrations are intentionally outside the current scope.
 
