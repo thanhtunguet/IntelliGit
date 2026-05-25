@@ -1,0 +1,40 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-25-graph-pagination.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 1: Add skip parameter to GitService.getGraph",
+      "status": "pending",
+      "description": "**Goal:** Make getGraph accept a skip offset and pass it to git log --skip=N.\n\n**Files:**\n- Modify: `src/services/gitService.ts:931-987`\n\n**Acceptance Criteria:**\n- [ ] getGraph(200, 0, {}) produces no --skip arg\n- [ ] getGraph(200, 200, {}) produces --skip=200 in git args\n- [ ] All existing callers still compile\n\n**Verify:** `npm run check-types` → no errors\n\n**Steps:** Add skip=0 default param; insert --skip=${skip} into args array when skip > 0; fix two internal callers that used old 2-arg form.\n\n```json:metadata\n{\"files\": [\"src/services/gitService.ts\", \"src/commands/commandController.ts\"], \"verifyCommand\": \"npm run check-types\", \"acceptanceCriteria\": [\"getGraph(200, 0, {}) produces no --skip arg\", \"getGraph(200, 200, {}) produces --skip=200\", \"All existing callers compile\"]}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 2: Add pagination state to StateStore",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** StateStore tracks whether more commits exist (_graphHasMore) and exposes loadMoreGraph() to fetch and append the next page.\n\n**Files:**\n- Modify: `src/state/stateStore.ts`\n- Create: `src/test/graphPagination.test.ts`\n\n**Acceptance Criteria:**\n- [ ] loadMoreGraph() on empty state: calls getGraph(200, 0, {}), sets graphHasMore=true when 200 returned\n- [ ] loadMoreGraph() called again: calls getGraph(200, 200, {}), appends results\n- [ ] loadMoreGraph() receiving partial page: sets graphHasMore=false\n- [ ] graphHasMore starts false before any load\n\n**Verify:** `npm test` → all 4 StateStore pagination tests pass\n\n**Steps:** Write 4 failing tests; add _graphHasMore field and graphHasMore getter; update loadGraph() to set _graphHasMore; add public loadMoreGraph() method.\n\n```json:metadata\n{\"files\": [\"src/state/stateStore.ts\", \"src/test/graphPagination.test.ts\"], \"verifyCommand\": \"npm test\", \"acceptanceCriteria\": [\"loadMoreGraph uses skip=0 on first call\", \"loadMoreGraph uses skip=prevLength on second call\", \"loadMoreGraph sets graphHasMore=false on partial page\", \"graphHasMore starts false\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 3: Add LoadMoreTreeItem to GraphTreeProvider",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** The Git Graph TreeView shows a Load More... item at the end of the list when more commits are available.\n\n**Files:**\n- Modify: `src/providers/graphTreeProvider.ts`\n- Modify: `src/test/graphPagination.test.ts`\n\n**Acceptance Criteria:**\n- [ ] When state.graphHasMore=true, getChildren returns commits + LoadMoreTreeItem\n- [ ] When state.graphHasMore=false, getChildren returns commits only\n- [ ] LoadMoreTreeItem has contextValue='graphLoadMore', label='Load More...', command='vscodeGitClient.graph.loadMore'\n\n**Verify:** `npm test` → all 6 tests pass; `npm run check-types` → no errors\n\n**Steps:** Add 2 failing tree provider tests; export LoadMoreTreeItem class; update GraphNode type alias; update getChildren root case.\n\n```json:metadata\n{\"files\": [\"src/providers/graphTreeProvider.ts\", \"src/test/graphPagination.test.ts\"], \"verifyCommand\": \"npm test && npm run check-types\", \"acceptanceCriteria\": [\"LoadMoreTreeItem shown when graphHasMore=true\", \"LoadMoreTreeItem absent when graphHasMore=false\", \"contextValue is graphLoadMore\"]}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 4: Wire loadMore command and update GraphFilterView controller",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** Register the vscodeGitClient.graph.loadMore command. Update GraphFilterView to handle loadMore messages and include hasMore in init.\n\n**Files:**\n- Modify: `src/commands/commandController.ts`\n- Modify: `src/views/graphFilterView.ts`\n\n**Acceptance Criteria:**\n- [ ] graph.loadMore command calls state.loadMoreGraph()\n- [ ] GraphFilterHandlers has loadMore(): Promise<{commits, hasMore}>\n- [ ] IncomingMessage union includes {type: 'loadMore'}\n- [ ] handleMessage 'loadMore' case posts appendCommits or loadMoreError\n- [ ] postInitial() sends hasMore\n- [ ] commandController wires loadMore handler and hasMore in getInitial\n\n**Verify:** `npm run check-types` → no errors\n\n**Steps:** Update GraphFilterHandlers; add to IncomingMessage; update getInitial type; update postInitial; add handleMessage case; register command; update GraphFilterView.open call.\n\n```json:metadata\n{\"files\": [\"src/views/graphFilterView.ts\", \"src/commands/commandController.ts\"], \"verifyCommand\": \"npm run check-types\", \"acceptanceCriteria\": [\"graph.loadMore command registered\", \"GraphFilterHandlers.loadMore defined\", \"handleMessage handles loadMore type\", \"init message includes hasMore\"]}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 5: Update graphFilterView.hbs webview for scroll pagination",
+      "status": "pending",
+      "blockedBy": [3],
+      "description": "**Goal:** Add IntersectionObserver scroll sentinel, appendRows function, and updatePreviewHeader helper to the Filter Graph webview.\n\n**Files:**\n- Modify: `src/views/templates/graphFilterView.hbs`\n\n**Acceptance Criteria:**\n- [ ] state object has hasMore: false initially\n- [ ] init message sets state.hasMore\n- [ ] appendCommits message appends new rows (filtered), updates state.commits and header\n- [ ] loadMoreError message clears state.loading\n- [ ] IntersectionObserver fires only when state.hasMore && !state.loading\n- [ ] Header shows 'scroll to load more' suffix when state.hasMore\n- [ ] MAX_PREVIEW cap removed\n\n**Verify:** `npm run compile` → no errors; manual smoke test in Extension Development Host\n\n**Steps:** Add sentinel div; remove MAX_PREVIEW, add hasMore to state; add updatePreviewHeader(); update renderPreview(); add appendRows(); update message handler; add IntersectionObserver.\n\n```json:metadata\n{\"files\": [\"src/views/templates/graphFilterView.hbs\"], \"verifyCommand\": \"npm run compile\", \"acceptanceCriteria\": [\"state.hasMore tracked\", \"appendCommits appends rows without full re-render\", \"IntersectionObserver triggers loadMore\", \"header shows scroll hint\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-25T00:00:00Z"
+}
