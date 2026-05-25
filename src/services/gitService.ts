@@ -940,14 +940,10 @@ export class GitService {
       '%s'
     ].join(FIELD_SEPARATOR);
 
-    const args = [
-      'log',
-      '--date=iso-strict',
-      '--decorate=full',
-      `--max-count=${maxCount}`,
-      ...(skip > 0 ? [`--skip=${skip}`] : []),
-      `--format=${format}${RECORD_SEPARATOR}`
-    ];
+    const args = ['log', '--date=iso-strict', '--decorate=full', `--max-count=${maxCount}`, `--format=${format}${RECORD_SEPARATOR}`];
+    if (skip > 0) {
+      args.push(`--skip=${skip}`);
+    }
 
     if (filters?.branch) {
       args.push(filters.branch);
