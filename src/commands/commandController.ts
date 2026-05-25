@@ -2280,7 +2280,7 @@ export class CommandController {
     view.setLoading(true);
     try {
       await this.state.refreshBranches();
-      const commits = await this.git.getGraph(maxCommits, { branch: ref });
+      const commits = await this.git.getGraph(maxCommits, 0, { branch: ref });
       view.update({
         id,
         title,

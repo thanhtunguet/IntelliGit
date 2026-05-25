@@ -928,7 +928,7 @@ export class GitService {
     return result.stdout;
   }
 
-  async getGraph(maxCount: number, filters?: CommitFilters): Promise<GraphCommit[]> {
+  async getGraph(maxCount: number, skip = 0, filters?: CommitFilters): Promise<GraphCommit[]> {
     const format = [
       '%m',
       '%H',
@@ -940,7 +940,14 @@ export class GitService {
       '%s'
     ].join(FIELD_SEPARATOR);
 
-    const args = ['log', '--date=iso-strict', '--decorate=full', `--max-count=${maxCount}`, `--format=${format}${RECORD_SEPARATOR}`];
+    const args = [
+      'log',
+      '--date=iso-strict',
+      '--decorate=full',
+      `--max-count=${maxCount}`,
+      ...(skip > 0 ? [`--skip=${skip}`] : []),
+      `--format=${format}${RECORD_SEPARATOR}`
+    ];
 
     if (filters?.branch) {
       args.push(filters.branch);
@@ -987,7 +994,7 @@ export class GitService {
   }
 
   async getCommitDetails(sha: string): Promise<CommitDetails> {
-    const [commit] = await this.getGraph(1, { branch: sha });
+    const [commit] = await this.getGraph(1, 0, { branch: sha });
     const bodyResult = await this.runGit(['show', '--quiet', '--format=%B', sha]);
     const nameStatus = await this.runGit(['show', '--name-status', '--format=', sha]);
     const shortStatResult = await this.runGit(['show', '--shortstat', '--format=', sha]);

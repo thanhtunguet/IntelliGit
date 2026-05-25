@@ -349,7 +349,7 @@ export class StateStore {
 
   private async loadGraph(): Promise<void> {
     const maxGraphCommits = getConfigValue<number>('maxGraphCommits', 200);
-    this._graph = await this.git.getGraph(maxGraphCommits, this._graphFilters);
+    this._graph = await this.git.getGraph(maxGraphCommits, 0, this._graphFilters);
   }
 
   async clearGraphFilters(): Promise<void> {
