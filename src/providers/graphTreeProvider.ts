@@ -152,6 +152,10 @@ export class GraphTreeProvider implements vscode.TreeDataProvider<GraphNode> {
       return buildFileTree(element.commit, element.files, element.folderPath, this.git.rootPath, canRevertSelectedChanges);
     }
 
+    if (element instanceof LoadMoreTreeItem) {
+      return [];
+    }
+
     const items: GraphNode[] = this.state.graph.map((commit) => new GraphCommitTreeItem(commit));
     if (this.state.graphHasMore) {
       items.push(new LoadMoreTreeItem());

@@ -44,6 +44,14 @@ function makeWorkspaceState(): vscode.Memento {
 
 const stubLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, dispose: () => {} };
 
+function makeStateStub(graph: GraphCommit[], graphHasMore: boolean): unknown {
+  return {
+    graph,
+    graphHasMore,
+    onDidChange: (_handler: () => void) => ({ dispose: () => {} }),
+  };
+}
+
 describe('StateStore graph pagination', () => {
   it('loadMoreGraph uses skip=0 on first call and appends results', async () => {
     const calls: Array<{ maxCount: number; skip: number }> = [];
@@ -114,14 +122,6 @@ describe('StateStore graph pagination', () => {
   });
 });
 
-function makeStateStub(graph: GraphCommit[], graphHasMore: boolean): unknown {
-  return {
-    graph,
-    graphHasMore,
-    onDidChange: (_handler: () => void) => ({ dispose: () => {} }),
-  };
-}
-
 describe('GraphTreeProvider pagination', () => {
   it('getChildren includes LoadMoreTreeItem when graphHasMore is true', async () => {
     const commits = [makeCommit('abc123' + '0'.repeat(34))];
@@ -132,6 +132,7 @@ describe('GraphTreeProvider pagination', () => {
     const last = children[children.length - 1];
     assert.ok(last instanceof LoadMoreTreeItem, 'last item should be LoadMoreTreeItem');
     assert.strictEqual(last.contextValue, 'graphLoadMore');
+    assert.strictEqual(last.command?.command, 'vscodeGitClient.graph.loadMore');
   });
 
   it('getChildren omits LoadMoreTreeItem when graphHasMore is false', async () => {
