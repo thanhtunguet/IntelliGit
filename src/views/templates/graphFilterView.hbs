@@ -157,7 +157,8 @@
       authors: [],
       commits: [],
       loading: false,
-      hasMore: false
+      hasMore: false,
+      loadMoreErrored: false
     };
     const messageInput = document.getElementById('message');
     const branchInput = document.getElementById('branch');
@@ -170,6 +171,7 @@
     const clearButton = document.getElementById('clear');
     const fieldClearButtons = Array.from(document.querySelectorAll('.field-clear'));
     let applyDebounceTimer = null;
+    let loadMoreObserver = null;
 
     {{> partials/scripts/commitContextMenu}}
 
@@ -265,7 +267,9 @@
         return;
       }
       if (msg && msg.type === 'init') {
+        if (loadMoreObserver) { loadMoreObserver.disconnect(); loadMoreObserver = null; }
         state.loading = false;
+        state.loadMoreErrored = false;
         state.hasMore = Boolean(msg.hasMore);
         const f = msg.filters || {};
         messageInput.value = f.message || '';
@@ -281,10 +285,12 @@
         branchAutocomplete.setSource(state.branches);
         authorAutocomplete.setSource(state.authors);
         renderPreview();
+        if (state.hasMore) { attachLoadMoreObserver(); }
         return;
       }
       if (msg && msg.type === 'appendCommits') {
         state.loading = false;
+        state.loadMoreErrored = false;
         state.hasMore = Boolean(msg.hasMore);
         const newCommits = Array.isArray(msg.commits) ? msg.commits : [];
         state.commits = state.commits.concat(newCommits);
@@ -300,6 +306,7 @@
       }
       if (msg && msg.type === 'loadMoreError') {
         state.loading = false;
+        state.loadMoreErrored = true;
         return;
       }
     });
@@ -330,6 +337,17 @@
       if (graph === '>') { return '▶'; }
       if (graph === '-') { return '●'; }
       return '○';
+    }
+
+    function buildRow(commit) {
+      const sha = escapeHtml(commit.sha || '');
+      const subject = escapeHtml(commit.subject || '');
+      const author = escapeHtml(commit.author || '');
+      const timestamp = Number(commit.dateTimestamp || 0);
+      const full = escapeHtml(commit.dateTitle || '');
+      const dateText = escapeHtml(commit.dateLabel || '');
+      const graph = escapeHtml(renderGraphGlyph(commit.graph));
+      return '<tr class="commit-row" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
     }
 
     function scoreMatch(candidate, keyword) {
@@ -364,14 +382,13 @@
       }, 160);
     }
 
-    function getFilteredCommits() {
-      const f = collect();
+    function buildMatchPredicate(f) {
       const message = (f.message || '').trim().toLowerCase();
       const branch = (f.branch || '').trim().toLowerCase();
       const author = (f.author || '').trim().toLowerCase();
       const since = parseSince(f.since || '');
       const until = parseUntil(f.until || '');
-      return state.commits.filter((commit) => {
+      return function matchesFilter(commit) {
         const subject = String(commit.subject || '').toLowerCase();
         const sha = String(commit.sha || '').toLowerCase();
         const refs = Array.isArray(commit.refs) ? commit.refs.join(' ') : '';
@@ -384,7 +401,11 @@
         const sinceOk = since === undefined || (Number.isFinite(commitDate) && commitDate >= since);
         const untilOk = until === undefined || (Number.isFinite(commitDate) && commitDate <= until);
         return messageOk && branchOk && authorOk && sinceOk && untilOk;
-      });
+      };
+    }
+
+    function getFilteredCommits() {
+      return state.commits.filter(buildMatchPredicate(collect()));
     }
 
     function updatePreviewHeader() {
@@ -405,51 +426,11 @@
         previewBody.innerHTML = '<tr><td colspan="4">No commits match current filters</td></tr>';
         return;
       }
-      previewBody.innerHTML = filtered.map((commit) => {
-        const sha = escapeHtml(commit.sha || '');
-        const subject = escapeHtml(commit.subject || '');
-        const author = escapeHtml(commit.author || '');
-        const timestamp = Number(commit.dateTimestamp || 0);
-        const full = escapeHtml(commit.dateTitle || '');
-        const dateText = escapeHtml(commit.dateLabel || '');
-        const graph = escapeHtml(renderGraphGlyph(commit.graph));
-        return '<tr class="commit-row" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
-      }).join('');
+      previewBody.innerHTML = filtered.map(buildRow).join('');
     }
 
     function appendRows(newCommits) {
-      const msg = collect();
-      const message = (msg.message || '').trim().toLowerCase();
-      const branch = (msg.branch || '').trim().toLowerCase();
-      const author = (msg.author || '').trim().toLowerCase();
-      const since = parseSince(msg.since || '');
-      const until = parseUntil(msg.until || '');
-
-      function matchesFilter(commit) {
-        const subject = String(commit.subject || '').toLowerCase();
-        const sha = String(commit.sha || '').toLowerCase();
-        const refs = Array.isArray(commit.refs) ? commit.refs.join(' ') : '';
-        const refsLower = refs.toLowerCase();
-        const authorLower = String(commit.author || '').toLowerCase();
-        const commitDate = Number(commit.dateTimestamp || 0);
-        const messageOk = !message || subject.includes(message) || sha.includes(message);
-        const branchOk = !branch || refsLower.includes(branch);
-        const authorOk = !author || authorLower.includes(author);
-        const sinceOk = since === undefined || (Number.isFinite(commitDate) && commitDate >= since);
-        const untilOk = until === undefined || (Number.isFinite(commitDate) && commitDate <= until);
-        return messageOk && branchOk && authorOk && sinceOk && untilOk;
-      }
-
-      const matchingRows = newCommits.filter(matchesFilter).map((commit) => {
-        const sha = escapeHtml(commit.sha || '');
-        const subject = escapeHtml(commit.subject || '');
-        const author = escapeHtml(commit.author || '');
-        const timestamp = Number(commit.dateTimestamp || 0);
-        const full = escapeHtml(commit.dateTitle || '');
-        const dateText = escapeHtml(commit.dateLabel || '');
-        const graph = escapeHtml(renderGraphGlyph(commit.graph));
-        return '<tr class="commit-row" data-sha="' + sha + '" data-subject="' + subject + '" data-author="' + author + '" data-timestamp="' + timestamp + '" data-side="filter" title="' + sha + '"><td class="col-graph copyable" title="Copy commit id: ' + sha + '">' + graph + '</td><td class="col-subject" title="' + subject + '">' + subject + '</td><td class="col-author" title="' + author + '">' + author + '</td><td class="col-date muted"><span title="' + full + '">' + dateText + '</span></td></tr>';
-      });
+      const matchingRows = newCommits.filter(buildMatchPredicate(collect())).map(buildRow);
 
       if (previewBody.querySelector('td[colspan]')) {
         previewBody.innerHTML = '';
@@ -683,9 +664,11 @@
     });
 
     const loadMoreSentinel = document.getElementById('load-more-sentinel');
-    if (loadMoreSentinel && typeof IntersectionObserver !== 'undefined') {
-      const loadMoreObserver = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && state.hasMore && !state.loading) {
+
+    function attachLoadMoreObserver() {
+      if (!loadMoreSentinel || typeof IntersectionObserver === 'undefined') { return; }
+      loadMoreObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && state.hasMore && !state.loading && !state.loadMoreErrored) {
           state.loading = true;
           vscode.postMessage({ type: 'loadMore' });
         }
