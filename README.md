@@ -56,7 +56,7 @@ Tags appear with branches and support checkout, checkout-new-branch, copy revisi
 
 ### Inspect History And Commit Details
 
-Open `Git Graph` for a tree-style commit list with refs, author/date metadata, subject-first titles, short hashes, and expandable changed files.
+Open `Git Graph` for a tree-style commit list with refs, author/date metadata, subject-first titles, short hashes, and expandable changed files. When there are more commits beyond the current page, a "Load More..." item appears at the bottom of the tree; click it to load the next page. The `maxGraphCommits` setting controls how many commits load per page (default 200).
 
 From a commit you can:
 
@@ -82,7 +82,7 @@ Use `Filter Graph` from the Git Graph toolbar to narrow commits by:
 - Message text.
 - Since and until dates.
 
-Filter fields apply as you type or change values. Selecting multiple commits in Filter Graph opens a merged Commit Details range that shows the net file changes across the selection.
+Filter fields apply as you type or change values. When more commits are available beyond the current page, scroll to the bottom of the commit list to automatically load the next page; the header shows "(scroll to load more)" while additional pages remain. Selecting multiple commits in Filter Graph opens a merged Commit Details range that shows the net file changes across the selection.
 
 ### Compare Branches
 
@@ -210,7 +210,7 @@ Supported editor workflows include:
 | ---------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
 | `vscodeGitClient.gitPath`                           | `"git"`         | Git executable path                                                                                   |
 | `vscodeGitClient.commandTimeoutMs`                  | `15000`         | Timeout for Git commands in milliseconds                                                              |
-| `vscodeGitClient.maxGraphCommits`                   | `200`           | Maximum commits shown in Git Graph                                                                    |
+| `vscodeGitClient.maxGraphCommits`                   | `200`           | Controls how many commits load per page in Git Graph views. Commits accumulate as you click "Load More..." in the tree view or scroll to the bottom of the Filter Graph webview. |
 | `vscodeGitClient.recentBranchesCount`               | `3`             | Number of branches shown in the Recent group                                                          |
 | `vscodeGitClient.gutterMarkers.enabled`             | `true`          | Show inline gutter markers for lines added, modified, or deleted vs `HEAD`                            |
 | `vscodeGitClient.gutterMarkers.maxFileSizeKb`       | `512`           | Skip gutter marker computation for files larger than this size in KB                                  |

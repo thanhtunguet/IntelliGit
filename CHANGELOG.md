@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Git Graph pagination** — Git Graph TreeView and Filter Graph webview now load commits incrementally. In the tree view a "Load More..." item appears at the bottom when additional commits are available; click it to load the next page. In the Filter Graph webview, scroll to the bottom of the commit list to automatically load the next page; the header shows "(scroll to load more)" while more pages remain. `maxGraphCommits` now controls the page size (commits per page) rather than a hard cap — commits accumulate as pages are loaded.
 - **Compare Branches — Message filter (fuzzy)** — new "Message" field in the filter row, before "Author", uses case-insensitive subsequence matching (type "mvw" to match "Move View Wrapper").
 - **Compare Branches — Graph mode** — new List / Graph toggle in the filter row. Graph mode renders an inline SVG showing the two branches diverging from their merge base (left lane, right lane, joined at the bottom). Existing filters dim non-matching commits in graph mode so the topology stays visible; clicking a node opens commit details the same as a list row click. The selected mode persists per workspace.
 - **Compare Branches — Refresh** — the compare webview now has a refresh button that refetches commits for the current left/right refs without reopening the panel and recovers cleanly if the refresh fails.
