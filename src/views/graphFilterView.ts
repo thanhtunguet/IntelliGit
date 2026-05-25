@@ -11,12 +11,14 @@ export interface GraphFilterHandlers {
   openCommitRangeDetails(shas: readonly string[]): Promise<void>;
   getCommitFiles(sha: string): Promise<string[]>;
   openFileDiff(sha: string, filePath: string): Promise<void>;
+  loadMore(): Promise<{ commits: GraphCommit[]; hasMore: boolean }>;
 }
 
 type IncomingMessage =
   | { type: 'apply'; filters: CommitFilters }
   | { type: 'clear' }
   | { type: 'close' }
+  | { type: 'loadMore' }
   | { type: 'openCommitDetails'; sha: string; subject: string }
   | { type: 'openCommitRangeDetails'; shas: string[] }
   | { type: 'loadCommitFiles'; sha: string }
@@ -31,7 +33,7 @@ export class GraphFilterView {
 
   private constructor(
     private readonly handlers: GraphFilterHandlers,
-    private readonly getInitial: () => { filters: CommitFilters; branches: BranchRef[]; commits: GraphCommit[] }
+    private readonly getInitial: () => { filters: CommitFilters; branches: BranchRef[]; commits: GraphCommit[]; hasMore: boolean }
   ) {
     this.panel = vscode.window.createWebviewPanel(
       'vscodeGitClient.graphFilter',
@@ -67,7 +69,7 @@ export class GraphFilterView {
 
   static open(
     handlers: GraphFilterHandlers,
-    getInitial: () => { filters: CommitFilters; branches: BranchRef[]; commits: GraphCommit[] }
+    getInitial: () => { filters: CommitFilters; branches: BranchRef[]; commits: GraphCommit[]; hasMore: boolean }
   ): GraphFilterView {
     if (GraphFilterView.current) {
       GraphFilterView.current.panel.reveal(vscode.ViewColumn.Active, false);
@@ -80,12 +82,13 @@ export class GraphFilterView {
   }
 
   private postInitial(): void {
-    const { filters, branches, commits } = this.getInitial();
+    const { filters, branches, commits, hasMore } = this.getInitial();
     void this.panel.webview.postMessage({
       type: 'init',
       filters,
       branches: collectBranchNames(branches),
-      commits: serializeCommits(commits)
+      commits: serializeCommits(commits),
+      hasMore
     });
   }
 
@@ -105,6 +108,15 @@ export class GraphFilterView {
       return;
     }
     switch (message.type) {
+      case 'loadMore': {
+        try {
+          const { commits, hasMore } = await this.handlers.loadMore();
+          void this.panel.webview.postMessage({ type: 'appendCommits', commits: serializeCommits(commits), hasMore });
+        } catch {
+          void this.panel.webview.postMessage({ type: 'loadMoreError' });
+        }
+        return;
+      }
       case 'apply':
         await this.handlers.apply(sanitizeCommitFilters(message.filters));
         this.postInitial();

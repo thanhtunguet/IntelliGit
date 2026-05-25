@@ -1413,12 +1413,21 @@ export class CommandController {
           openCommitDetails: async (sha, subject) => this.openCommitDetails(sha, subject, { allowToggle: true }),
           openCommitRangeDetails: async (shas) => this.editor.openCommitRangeDetails(shas),
           getCommitFiles: async (sha) => this.git.getFilesInCommit(sha),
-          openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath)
+          openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath),
+          loadMore: async () => {
+            const prevLength = this.state.graph.length;
+            await this.state.loadMoreGraph();
+            return {
+              commits: this.state.graph.slice(prevLength),
+              hasMore: this.state.graphHasMore
+            };
+          }
         },
         () => ({
           filters: this.state.graphFilters,
           branches: this.state.branches,
-          commits: this.state.graph
+          commits: this.state.graph,
+          hasMore: this.state.graphHasMore
         })
       );
     });
@@ -1426,6 +1435,10 @@ export class CommandController {
     register('vscodeGitClient.graph.clearFilter', async () => {
       await this.state.clearGraphFilters();
       await vscode.commands.executeCommand('setContext', 'vscodeGitClient.graphFilterActive', false);
+    });
+
+    register('vscodeGitClient.graph.loadMore', async () => {
+      await this.state.loadMoreGraph();
     });
 
     register('vscodeGitClient.diff.open', async () => {
