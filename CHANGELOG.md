@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 - **Compare with Revision — QuickPick refresh** — the revision picker now opens from cached refs first, lazily loads refs when empty, and offers a refresh button to update stale or partially loaded branch/tag lists without closing the picker.
 
 ### Changed
+- **Filter Graph isolation** — typing in Filter Graph fields now filters only the Filter Graph webview session; the native Git Graph TreeView remains the master commit list and is no longer replaced by Filter Graph results.
 - **Commit Details behavior consolidation** — commit clicks from Git Graph, Filter Graph, Compare Branches, and commit-list webviews now share the same toggle behavior: click a commit to show details, click the same commit again to hide the details pane, click a different commit to replace the current details.
 - **Commit Details selected-change context actions** — `Open Diffs` now applies to multi-selected rows, `Create Patch from Selected Changes` is now branch-aware (enabled only when the commit is not on current `HEAD` ancestry), and patch creation now offers save-to-file or copy-to-clipboard output before applying to the working tree.
 - **Apply Patch command** — added `vscodeGitClient.commit.applyPatch` for Command Palette usage (`Apply Patch to Working Tree`) with clipboard-or-file input, working-tree patchability checks, and IntelliJ-style `Nothing to cherry pick.` messaging when patch content is already present.

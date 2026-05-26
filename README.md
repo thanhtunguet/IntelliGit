@@ -82,7 +82,7 @@ Use `Filter Graph` from the Git Graph toolbar to narrow commits by:
 - Message text.
 - Since and until dates.
 
-Filter fields apply as you type or change values. When more commits are available beyond the current page, scroll to the bottom of the commit list to automatically load the next page; the header shows "(scroll to load more)" while additional pages remain. Selecting multiple commits in Filter Graph opens a merged Commit Details range that shows the net file changes across the selection.
+Filter fields apply as you type or change values inside the Filter Graph webview without changing the main Git Graph TreeView list. When more commits are available beyond the current page, scroll to the bottom of the commit list to automatically load the next page; the header shows "(scroll to load more)" while additional pages remain. Selecting multiple commits in Filter Graph opens a merged Commit Details range that shows the net file changes across the selection.
 
 ### Compare Branches
 

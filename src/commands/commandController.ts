@@ -21,6 +21,7 @@ import { StateStore } from '../state/stateStore';
 import { BranchSearchView } from '../views/branchSearchView';
 import { CommitListView } from '../views/commitListView';
 import { GraphFilterView } from '../views/graphFilterView';
+import { GraphFilterSession } from '../views/graphFilterSession';
 import { pickRevisionToCompare } from '../views/revisionPicker';
 
 interface QuickAction {
@@ -1399,40 +1400,45 @@ export class CommandController {
     });
 
     register('vscodeGitClient.graph.filter', async () => {
+      const filterSession = new GraphFilterSession(
+        (maxCount, skip, filters) => this.git.getGraph(maxCount, skip, filters),
+        () => getConfigValue<number>('maxGraphCommits', 200)
+      );
+      const getMasterSnapshot = () => ({
+        filters: {},
+        branches: this.state.branches,
+        commits: this.state.graph,
+        hasMore: this.state.graphHasMore
+      });
       GraphFilterView.open(
         {
           apply: async (filters) => {
-            await this.state.refreshGraph(filters);
+            const snapshot = await filterSession.apply(filters);
             const isActive = Object.values(filters).some(Boolean);
             await vscode.commands.executeCommand('setContext', 'vscodeGitClient.graphFilterActive', isActive);
+            return snapshot;
           },
           clear: async () => {
-            await this.state.clearGraphFilters();
             await vscode.commands.executeCommand('setContext', 'vscodeGitClient.graphFilterActive', false);
+            return filterSession.clear(getMasterSnapshot());
           },
           openCommitDetails: async (sha, subject) => this.openCommitDetails(sha, subject, { allowToggle: true }),
           openCommitRangeDetails: async (shas) => this.editor.openCommitRangeDetails(shas),
           getCommitFiles: async (sha) => this.git.getFilesInCommit(sha),
           openFileDiff: async (sha, filePath) => this.editor.openCommitFileDiff(sha, filePath),
           loadMore: async () => {
-            const newCommits = await this.state.loadMoreGraph();
-            return {
-              commits: newCommits,
-              hasMore: this.state.graphHasMore
-            };
+            return filterSession.loadMore(getMasterSnapshot());
           }
         },
         () => ({
-          filters: this.state.graphFilters,
-          branches: this.state.branches,
-          commits: this.state.graph,
-          hasMore: this.state.graphHasMore
+          ...filterSession.getSnapshot(getMasterSnapshot()),
+          branches: this.state.branches
         })
       );
     });
 
     register('vscodeGitClient.graph.clearFilter', async () => {
-      await this.state.clearGraphFilters();
+      await GraphFilterView.clearCurrentFilters();
       await vscode.commands.executeCommand('setContext', 'vscodeGitClient.graphFilterActive', false);
     });
 

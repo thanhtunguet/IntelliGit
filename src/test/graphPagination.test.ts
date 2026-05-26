@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { GraphTreeProvider, LoadMoreTreeItem } from '../providers/graphTreeProvider';
 import { StateStore } from '../state/stateStore';
 import { CommitFilters, GraphCommit } from '../types';
+import { GraphFilterSession } from '../views/graphFilterSession';
 
 function makeCommit(sha: string): GraphCommit {
   return { graph: '-', sha, shortSha: sha.slice(0, 7), parents: [], refs: [], author: 'A', date: '2024-01-01T00:00:00Z', subject: 'msg' };
@@ -48,7 +49,7 @@ function makeStateStub(graph: GraphCommit[], graphHasMore: boolean): unknown {
   return {
     graph,
     graphHasMore,
-    onDidChange: (_handler: () => void) => ({ dispose: () => {} }),
+    onDidChange: () => ({ dispose: () => {} }),
   };
 }
 
@@ -142,5 +143,39 @@ describe('GraphTreeProvider pagination', () => {
     const children = await provider.getChildren();
     assert.strictEqual(children.length, 1);
     assert.ok(!(children[0] instanceof LoadMoreTreeItem));
+  });
+});
+
+describe('GraphFilterSession', () => {
+  it('apply loads filtered commits without mutating the master graph snapshot', async () => {
+    const masterCommits = [makeCommit('m'.repeat(40))];
+    const filteredCommits = [makeCommit('f'.repeat(40))];
+    const calls: Array<{ maxCount: number; skip: number; filters?: CommitFilters }> = [];
+    const session = new GraphFilterSession(async (maxCount, skip, filters) => {
+      calls.push({ maxCount, skip, filters });
+      return filteredCommits;
+    }, () => 200);
+
+    const snapshot = await session.apply({ message: 'fix' });
+
+    assert.deepStrictEqual(snapshot.commits, filteredCommits);
+    assert.deepStrictEqual(masterCommits, [makeCommit('m'.repeat(40))]);
+    assert.deepStrictEqual(calls, [{ maxCount: 200, skip: 0, filters: { message: 'fix' } }]);
+  });
+
+  it('loadMore starts from the master graph length without appending to the master graph', async () => {
+    const masterCommits = [makeCommit('a'.repeat(40)), makeCommit('b'.repeat(40))];
+    const nextPage = [makeCommit('c'.repeat(40))];
+    const calls: Array<{ maxCount: number; skip: number; filters?: CommitFilters }> = [];
+    const session = new GraphFilterSession(async (maxCount, skip, filters) => {
+      calls.push({ maxCount, skip, filters });
+      return nextPage;
+    }, () => 200);
+
+    const result = await session.loadMore({ filters: {}, commits: masterCommits, hasMore: true });
+
+    assert.deepStrictEqual(result, { commits: nextPage, hasMore: false });
+    assert.strictEqual(masterCommits.length, 2);
+    assert.deepStrictEqual(calls, [{ maxCount: 200, skip: 2, filters: {} }]);
   });
 });

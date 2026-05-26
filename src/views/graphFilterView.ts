@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import { handleCommitAction, isCommitActionMessage, type CommitActionMessage } from './commitActions';
 import { collectBranchNames, sanitizeCommitFilters, serializeCommits } from './commitFilterModel';
+import { GraphFilterSnapshot } from './graphFilterSession';
 import { renderTemplate } from './templateRenderer';
 import { BranchRef, CommitFilters, GraphCommit } from '../types';
 
 export interface GraphFilterHandlers {
-  apply(filters: CommitFilters): Promise<void>;
-  clear(): Promise<void>;
+  apply(filters: CommitFilters): Promise<GraphFilterSnapshot>;
+  clear(): Promise<GraphFilterSnapshot>;
   openCommitDetails(sha: string, subject: string): Promise<void>;
   openCommitRangeDetails(shas: readonly string[]): Promise<void>;
   getCommitFiles(sha: string): Promise<string[]>;
@@ -81,14 +82,27 @@ export class GraphFilterView {
     return view;
   }
 
+  static async clearCurrentFilters(): Promise<boolean> {
+    if (!GraphFilterView.current) {
+      return false;
+    }
+    const snapshot = await GraphFilterView.current.handlers.clear();
+    GraphFilterView.current.postSnapshot(snapshot);
+    return true;
+  }
+
   private postInitial(): void {
     const { filters, branches, commits, hasMore } = this.getInitial();
+    this.postSnapshot({ filters, commits, hasMore }, branches);
+  }
+
+  private postSnapshot(snapshot: GraphFilterSnapshot, branches: BranchRef[] = this.getInitial().branches): void {
     void this.panel.webview.postMessage({
       type: 'init',
-      filters,
+      filters: snapshot.filters,
       branches: collectBranchNames(branches),
-      commits: serializeCommits(commits),
-      hasMore
+      commits: serializeCommits(snapshot.commits),
+      hasMore: snapshot.hasMore
     });
   }
 
@@ -121,12 +135,10 @@ export class GraphFilterView {
         return;
       }
       case 'apply':
-        await this.handlers.apply(sanitizeCommitFilters(message.filters));
-        this.postInitial();
+        this.postSnapshot(await this.handlers.apply(sanitizeCommitFilters(message.filters)));
         return;
       case 'clear':
-        await this.handlers.clear();
-        this.postInitial();
+        this.postSnapshot(await this.handlers.clear());
         return;
       case 'close':
         this.panel.dispose();
@@ -175,6 +187,7 @@ export class GraphFilterView {
     if (GraphFilterView.current === this) {
       GraphFilterView.current = undefined;
     }
+    void vscode.commands.executeCommand('setContext', 'vscodeGitClient.graphFilterActive', false);
   }
 }
 
