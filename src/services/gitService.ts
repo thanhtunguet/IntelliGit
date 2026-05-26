@@ -952,7 +952,12 @@ export class GitService {
       args.push(`--author=${filters.author}`);
     }
     if (filters?.message) {
-      args.push(`--grep=${filters.message}`);
+      const sha = await this.resolveShaFilter(filters.message);
+      if (sha) {
+        args.push(sha);
+      } else {
+        args.push(`--grep=${filters.message}`);
+      }
     }
     if (filters?.since) {
       args.push(`--since=${filters.since}`);
@@ -987,6 +992,20 @@ export class GitService {
           subject
         } as GraphCommit;
       });
+  }
+
+  private async resolveShaFilter(message: string): Promise<string | undefined> {
+    const trimmed = message.trim();
+    if (!/^[0-9a-f]{4,40}$/i.test(trimmed)) {
+      return undefined;
+    }
+    try {
+      const result = await this.runGit(['rev-parse', '--verify', trimmed]);
+      const sha = result.stdout.trim();
+      return sha || undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   async getCommitDetails(sha: string): Promise<CommitDetails> {
