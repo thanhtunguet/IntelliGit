@@ -172,6 +172,8 @@
     const fieldClearButtons = Array.from(document.querySelectorAll('.field-clear'));
     let applyDebounceTimer = null;
     let loadMoreObserver = null;
+    let inputRevision = 0;
+    let selectedBranchFilter = '';
 
     {{> partials/scripts/commitContextMenu}}
 
@@ -267,6 +269,10 @@
         return;
       }
       if (msg && msg.type === 'init') {
+        const responseInputRevision = Number(msg.inputRevision);
+        if (Number.isFinite(responseInputRevision) && responseInputRevision < inputRevision) {
+          return;
+        }
         if (loadMoreObserver) { loadMoreObserver.disconnect(); loadMoreObserver = null; }
         state.loading = false;
         state.loadMoreErrored = false;
@@ -274,6 +280,7 @@
         const f = msg.filters || {};
         messageInput.value = f.message || '';
         branchInput.value = f.branch || '';
+        selectedBranchFilter = f.branch || '';
         authorInput.value = f.author || '';
         sinceInput.value = f.since || '';
         untilInput.value = f.until || '';
@@ -363,7 +370,7 @@
     function collect() {
       return {
         message: messageInput.value,
-        branch: branchInput.value,
+        branch: selectedBranchFilter,
         author: authorInput.value,
         since: sinceInput.value,
         until: untilInput.value
@@ -379,8 +386,19 @@
       }
       applyDebounceTimer = setTimeout(() => {
         applyDebounceTimer = null;
-        vscode.postMessage({ type: 'apply', filters: collect() });
-      }, 160);
+        vscode.postMessage({ type: 'apply', filters: collect(), inputRevision });
+      }, 300);
+    }
+
+    function noteFilterInputChanged() {
+      inputRevision += 1;
+      renderPreview();
+      scheduleApplyFilters();
+    }
+
+    function noteFilterTextChanged() {
+      inputRevision += 1;
+      renderPreview();
     }
 
     function buildMatchPredicate(f) {
@@ -490,7 +508,9 @@
       commitContextMenu.openForRow(event, row);
     });
 
-    function createAutocomplete(input, list) {
+    function createAutocomplete(input, list, options = {}) {
+      const applyOnInput = options.applyOnInput !== false;
+      const onSelect = typeof options.onSelect === 'function' ? options.onSelect : undefined;
       const model = { source: [], suggestions: [], activeIndex: -1 };
       const close = () => {
         model.suggestions = [];
@@ -540,14 +560,19 @@
         const selected = model.suggestions[index];
         if (!selected) { return; }
         input.value = selected;
+        inputRevision += 1;
+        if (onSelect) { onSelect(selected); }
         close();
         renderPreview();
         scheduleApplyFilters();
       };
       input.addEventListener('input', () => {
-        renderPreview();
         open();
-        scheduleApplyFilters();
+        if (applyOnInput) {
+          noteFilterInputChanged();
+        } else {
+          noteFilterTextChanged();
+        }
       });
       input.addEventListener('focus', open);
       input.addEventListener('keydown', (event) => {
@@ -600,11 +625,19 @@
       };
     }
 
-    const branchAutocomplete = createAutocomplete(branchInput, document.getElementById('branch-list'));
+    const branchAutocomplete = createAutocomplete(branchInput, document.getElementById('branch-list'), {
+      applyOnInput: false,
+      onSelect: (branch) => {
+        selectedBranchFilter = branch;
+      }
+    });
     const authorAutocomplete = createAutocomplete(authorInput, document.getElementById('author-list'));
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      if (document.activeElement === branchInput) {
+        return;
+      }
       if (SHOW_APPLY) {
         scheduleApplyFilters();
       }
@@ -624,12 +657,13 @@
         }
         messageInput.value = '';
         branchInput.value = '';
+        selectedBranchFilter = '';
         authorInput.value = '';
         sinceInput.value = '';
         untilInput.value = '';
         branchAutocomplete.close();
         authorAutocomplete.close();
-        renderPreview();
+        noteFilterInputChanged();
       });
     }
 
@@ -640,21 +674,17 @@
         const target = document.getElementById(targetId);
         if (!target) { return; }
         target.value = '';
-        if (targetId === 'branch') { branchAutocomplete.close(); }
+        if (targetId === 'branch') {
+          selectedBranchFilter = '';
+          branchAutocomplete.close();
+        }
         if (targetId === 'author') { authorAutocomplete.close(); }
-        renderPreview();
-        scheduleApplyFilters();
+        noteFilterInputChanged();
       });
     });
     [messageInput, sinceInput, untilInput].forEach((input) => {
-      input.addEventListener('input', () => {
-        renderPreview();
-        scheduleApplyFilters();
-      });
-      input.addEventListener('change', () => {
-        renderPreview();
-        scheduleApplyFilters();
-      });
+      input.addEventListener('input', noteFilterInputChanged);
+      input.addEventListener('change', noteFilterInputChanged);
     });
 
     document.addEventListener('keydown', (e) => {

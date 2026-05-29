@@ -16,7 +16,7 @@ export interface GraphFilterHandlers {
 }
 
 type IncomingMessage =
-  | { type: 'apply'; filters: CommitFilters }
+  | { type: 'apply'; filters: CommitFilters; inputRevision?: number }
   | { type: 'clear' }
   | { type: 'close' }
   | { type: 'loadMore' }
@@ -98,13 +98,18 @@ export class GraphFilterView {
     this.postSnapshot({ filters, commits, hasMore }, branches);
   }
 
-  private postSnapshot(snapshot: GraphFilterSnapshot, branches: BranchRef[] = this.getInitial().branches): void {
+  private postSnapshot(
+    snapshot: GraphFilterSnapshot,
+    branches: BranchRef[] = this.getInitial().branches,
+    inputRevision?: number
+  ): void {
     void this.panel.webview.postMessage({
       type: 'init',
       filters: snapshot.filters,
       branches: collectBranchNames(branches),
       commits: serializeCommits(snapshot.commits),
-      hasMore: snapshot.hasMore
+      hasMore: snapshot.hasMore,
+      inputRevision
     });
   }
 
@@ -138,11 +143,12 @@ export class GraphFilterView {
       }
       case 'apply': {
         const requestId = ++this.applyRequestId;
+        const inputRevision = typeof message.inputRevision === 'number' ? message.inputRevision : undefined;
         const snapshot = await this.handlers.apply(sanitizeCommitFilters(message.filters));
         if (requestId !== this.applyRequestId) {
           return;
         }
-        this.postSnapshot(snapshot);
+        this.postSnapshot(snapshot, undefined, inputRevision);
         return;
       }
       case 'clear':
