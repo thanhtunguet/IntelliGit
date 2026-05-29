@@ -294,6 +294,17 @@ describe('GitService graph branch filtering', () => {
     assert.deepStrictEqual(commits, []);
   });
 
+  it('uses exact branch selection when full branch name is provided', async () => {
+    runGit(['checkout', '-b', 'feature/login-helper'], repoDir);
+    fs.appendFileSync(path.join(repoDir, 'history.txt'), 'helper\n');
+    runGit(['commit', '-am', 'helper branch commit'], repoDir);
+    runGit(['checkout', 'main'], repoDir);
+
+    const commits = await git.getGraph(200, 0, { branch: 'feature/login' });
+    assert.ok(commits.some((commit) => commit.subject === 'feature commit'));
+    assert.ok(!commits.some((commit) => commit.subject === 'helper branch commit'));
+  });
+
   it('treats message as text filter and never throws on unknown revision-like tokens', async () => {
     await assert.doesNotReject(async () => {
       const commits = await git.getGraph(100, 0, { message: 'deadbeefcafebabe1234' });

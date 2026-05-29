@@ -178,4 +178,33 @@ describe('GraphFilterSession', () => {
     assert.strictEqual(masterCommits.length, 2);
     assert.deepStrictEqual(calls, [{ maxCount: 200, skip: 2, filters: {} }]);
   });
+
+  it('ignores stale apply results and keeps the newest filter snapshot', async () => {
+    const slowCommits = [makeCommit('1'.repeat(40))];
+    const fastCommits = [makeCommit('2'.repeat(40))];
+
+    let releaseSlow: (() => void) | undefined;
+    const slowGate = new Promise<void>((resolve) => {
+      releaseSlow = resolve;
+    });
+
+    const session = new GraphFilterSession(async (_maxCount, _skip, filters) => {
+      if (filters?.branch === 'feature/slow') {
+        await slowGate;
+        return slowCommits;
+      }
+      return fastCommits;
+    }, () => 200);
+
+    const slowApply = session.apply({ branch: 'feature/slow' });
+    const fastSnapshot = await session.apply({ branch: 'feature/fast' });
+
+    assert.deepStrictEqual(fastSnapshot.filters, { branch: 'feature/fast' });
+    assert.deepStrictEqual(fastSnapshot.commits, fastCommits);
+
+    releaseSlow?.();
+    const staleSnapshot = await slowApply;
+    assert.deepStrictEqual(staleSnapshot.filters, { branch: 'feature/fast' });
+    assert.deepStrictEqual(staleSnapshot.commits, fastCommits);
+  });
 });

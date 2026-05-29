@@ -18,6 +18,7 @@ export class GraphFilterSession {
   private hasMore = false;
   private usingMaster = true;
   private loadingMore = false;
+  private applyEpoch = 0;
 
   constructor(
     private readonly loadGraph: GraphFilterLoader,
@@ -41,7 +42,11 @@ export class GraphFilterSession {
 
   async apply(filters: CommitFilters): Promise<GraphFilterSnapshot> {
     const pageSize = this.getPageSize();
+    const epoch = ++this.applyEpoch;
     const commits = await this.loadGraph(pageSize, 0, filters);
+    if (epoch !== this.applyEpoch) {
+      return this.getSnapshot({ filters: {}, commits: [], hasMore: false });
+    }
     this.filters = { ...filters };
     this.commits = commits;
     this.hasMore = commits.length === pageSize;

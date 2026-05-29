@@ -947,7 +947,12 @@ export class GitService {
 
     if (filters?.branch) {
       const branchKeyword = filters.branch.trim();
-      args.push(`--branches=*${branchKeyword}*`, `--remotes=*${branchKeyword}*`);
+      const exactBranchRef = await this.resolveExactBranchRef(branchKeyword);
+      if (exactBranchRef) {
+        args.push(exactBranchRef);
+      } else {
+        args.push(`--branches=*${branchKeyword}*`, `--remotes=*${branchKeyword}*`);
+      }
     } else {
       args.push('--all');
     }
@@ -995,6 +1000,43 @@ export class GitService {
           subject
         } as GraphCommit;
       });
+  }
+
+  private async resolveExactBranchRef(branch: string): Promise<string | undefined> {
+    const query = branch.trim();
+    if (!query) {
+      return undefined;
+    }
+
+    const localFull = `refs/heads/${query}`;
+    const remoteFull = `refs/remotes/${query}`;
+    const remotesWildcard = `refs/remotes/*/${query}`;
+
+    if (await this.refExists(localFull)) {
+      return localFull;
+    }
+    if (await this.refExists(remoteFull)) {
+      return remoteFull;
+    }
+    if (await this.refPatternExists(remotesWildcard)) {
+      return remotesWildcard;
+    }
+
+    return undefined;
+  }
+
+  private async refExists(ref: string): Promise<boolean> {
+    try {
+      await this.runGit(['show-ref', '--verify', '--quiet', ref]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async refPatternExists(pattern: string): Promise<boolean> {
+    const result = await this.runGit(['for-each-ref', '--format=%(refname)', pattern]);
+    return result.stdout.trim().length > 0;
   }
 
   private async resolveShaFilter(message: string): Promise<string | undefined> {
