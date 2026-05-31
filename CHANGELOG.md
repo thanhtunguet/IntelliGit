@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Branches view remote delete** — remote group context menus now include `Delete this remote`, with confirmation before running `git remote remove`.
 - **Git Graph pagination** — Git Graph TreeView and Filter Graph webview now load commits incrementally. In the tree view a "Load More..." item appears at the bottom when additional commits are available; click it to load the next page. In the Filter Graph webview, scroll to the bottom of the commit list to automatically load the next page; the header shows "(scroll to load more)" while more pages remain. `maxGraphCommits` now controls the page size (commits per page) rather than a hard cap — commits accumulate as pages are loaded.
 - **Compare Branches — Message filter (fuzzy)** — new "Message" field in the filter row, before "Author", uses case-insensitive subsequence matching (type "mvw" to match "Move View Wrapper").
 - **Compare Branches — Graph mode** — new List / Graph toggle in the filter row. Graph mode renders an inline SVG showing the two branches diverging from their merge base (left lane, right lane, joined at the bottom). Existing filters dim non-matching commits in graph mode so the topology stays visible; clicking a node opens commit details the same as a list row click. The selected mode persists per workspace.
@@ -13,6 +14,7 @@ All notable changes to this project are documented in this file.
 - **Sparse repository view auto-collapse** — Worktrees and Submodules now auto-collapse after loading when the repository only has the main/current worktree and no submodules.
 
 ### Changed
+- **Search Branches & Tags loading count** — the search panel now shows the available branch/tag result count as soon as cached or partially refreshed refs arrive, instead of keeping the count label on `Loading...` until every refs phase completes.
 - **Branches view remote actions** — The Remote section now exposes `Add Git remote` as a plus button on the section header, matching the existing Tags create action.
 - **Branches/Search actions** — Branches now distinguish local and remote branch context menus so local-only actions (rename/delete/track/untrack) do not appear for remote refs. Search Branches & Tags now uses tag-specific actions for tag rows instead of routing them through branch actions.
 - **Compare Branches graph selection parity** — Graph mode now keeps the same row-selection behavior as List mode, including `Shift`/`Ctrl`/`Cmd` multi-select and `Cmd/Ctrl+A` for visible commits in the active pane.

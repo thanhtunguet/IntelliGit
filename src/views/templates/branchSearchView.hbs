@@ -153,7 +153,7 @@
 
     let branches = [];
     let tags = [];
-    let filtered = [];
+    let filtered = { branches: [], tags: [] };
     let focusedIndex = 0;
     let selectedName = null;
     let selectedKind = null;
@@ -252,7 +252,7 @@
       const branchCount = filtered.branches.length;
       const tagCount = filtered.tags.length;
       const total = branchCount + tagCount;
-      if (isLoading) {
+      if (isLoading && total === 0) {
         countEl.textContent = 'Loading...';
       } else {
         countEl.textContent = total + (total === 1 ? ' result' : ' results');

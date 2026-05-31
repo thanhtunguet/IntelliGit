@@ -395,6 +395,10 @@ export class GitService {
     await this.runGit(['remote', 'add', remoteName, remoteUrl]);
   }
 
+  async deleteRemote(remoteName: string): Promise<void> {
+    await this.runGit(['remote', 'remove', remoteName]);
+  }
+
   async renameBranch(from: string, to: string): Promise<void> {
     await this.runGit(['branch', '-m', from, to]);
   }

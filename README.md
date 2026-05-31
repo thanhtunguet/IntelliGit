@@ -52,7 +52,7 @@ Common actions are available from right-click menus and the Branch Action Hub. L
 - Reset the current branch to a selected commit with `soft`, `mixed`, or `hard` confirmation.
 - Compare a branch with the current branch.
 - Open branch or tag commits in `Git Graph`.
-- Add a remote from the Remote section plus button, or change/set remote URLs with immediate update feedback.
+- Add a remote from the Remote section plus button, change/set remote URLs with immediate update feedback, or delete a remote from its context menu after confirmation.
 
 Tags appear with branches and support checkout, checkout-new-branch, copy revision, repository-at-revision, compare-with-current, patch preview, and graph navigation actions. The branch/tag search panel uses tag-specific actions for tag rows.
 

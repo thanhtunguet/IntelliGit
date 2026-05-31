@@ -192,6 +192,10 @@
         "icon": "$(add)"
       },
       {
+        "command": "vscodeGitClient.remote.delete",
+        "title": "Delete this remote"
+      },
+      {
         "command": "vscodeGitClient.tag.checkoutNewBranch",
         "title": "Checkout New Branch"
       },
@@ -773,6 +777,11 @@
           "command": "vscodeGitClient.remote.setUrlMissing",
           "when": "view == vscodeGitClient.branches && viewItem == branchRemoteGroup && !vscodeGitClient.remoteHasUrl",
           "group": "navigation"
+        },
+        {
+          "command": "vscodeGitClient.remote.delete",
+          "when": "view == vscodeGitClient.branches && viewItem == branchRemoteGroup",
+          "group": "navigation@1"
         },
         {
           "command": "vscodeGitClient.remote.add",

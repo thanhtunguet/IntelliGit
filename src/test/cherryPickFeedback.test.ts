@@ -9,6 +9,7 @@ const conflictMessage = 'There are some conflicts. You have to resolve them firs
 
 type GitOverrides = Partial<{
   cherryPick(sha: string): Promise<void>;
+  deleteRemote(remoteName: string): Promise<void>;
   mergeIntoCurrent(branch: string): Promise<void>;
   rebaseCurrentOnto(branch: string): Promise<void>;
   setRemoteUrl(remoteName: string, remoteUrl: string): Promise<void>;
@@ -50,6 +51,9 @@ function registerController(
     {
       cherryPick: overrides.cherryPick ?? (async (sha: string) => {
         events.push(`git:cherry-pick:${sha}`);
+      }),
+      deleteRemote: overrides.deleteRemote ?? (async (remoteName: string) => {
+        events.push(`git:delete-remote:${remoteName}`);
       }),
       getMergeConflicts: async () => [{ path: 'src/conflict.ts', status: 'UU' }],
       getOperationState: async () => ({ kind: 'rebase' }),
@@ -282,6 +286,54 @@ describe('cherry-pick and operation feedback', () => {
       'refresh-branches:start',
       'message:Remote origin URL updated.',
       'refresh-branches:finish'
+    ]);
+  });
+
+  it('confirms and deletes a remote from the Branches remote group', async () => {
+    const events: string[] = [];
+    const refresh = deferred();
+    const commands = registerController(events, refresh, {}, true);
+
+    (vscode.window as unknown as {
+      showInformationMessage: typeof vscode.window.showInformationMessage;
+    }).showInformationMessage = async (message: string) => {
+      events.push(`message:${message}`);
+      return undefined;
+    };
+
+    const deleteRemote = commands.get('vscodeGitClient.remote.delete');
+    assert.ok(deleteRemote, 'expected remote delete command to be registered');
+
+    const remote = new BranchRemoteNode('origin', [{
+      name: 'origin/main',
+      shortName: 'main',
+      fullName: 'refs/remotes/origin/main',
+      type: 'remote',
+      remoteName: 'origin',
+      remoteUrl: 'https://github.com/example/repo.git',
+      ahead: 0,
+      behind: 0,
+      current: false
+    }], 'https://github.com/example/repo.git');
+
+    const run = deleteRemote(remote);
+    await delay(0);
+
+    assert.deepStrictEqual(events, [
+      'warning:Delete remote',
+      'git:delete-remote:origin',
+      'refresh-branches:start'
+    ]);
+
+    refresh.resolve();
+    await run;
+
+    assert.deepStrictEqual(events, [
+      'warning:Delete remote',
+      'git:delete-remote:origin',
+      'refresh-branches:start',
+      'refresh-branches:finish',
+      'message:Deleted remote origin.'
     ]);
   });
 });

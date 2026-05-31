@@ -551,6 +551,26 @@ export class CommandController {
       void vscode.window.showInformationMessage(`Added remote ${remoteName.trim()}.`);
     });
 
+    register('vscodeGitClient.remote.delete', async (arg?: unknown) => {
+      const remoteName = asBranchRemoteItem(arg)?.remoteName;
+      if (!remoteName) {
+        return;
+      }
+
+      const confirmed = await confirmDangerousAction({
+        title: 'Delete remote',
+        detail: `Remote: ${remoteName}`,
+        acceptLabel: 'Delete'
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      await this.git.deleteRemote(remoteName);
+      await this.state.refreshBranches();
+      void vscode.window.showInformationMessage(`Deleted remote ${remoteName}.`);
+    });
+
     register('vscodeGitClient.branch.rename', async (arg?: unknown) => {
       const from = toBranchName(arg) ?? (await this.pickBranchName('Pick branch to rename'));
       if (!from) {
