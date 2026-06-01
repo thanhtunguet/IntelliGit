@@ -160,9 +160,7 @@
       hasMore: false,
       loadMoreErrored: false,
       streaming: false,
-      streamingSeen: false,
-      maxedOut: false,
-      maxCount: 0
+      streamingSeen: false
     };
     const messageInput = document.getElementById('message');
     const branchInput = document.getElementById('branch');
@@ -283,8 +281,6 @@
         state.hasMore = Boolean(msg.hasMore);
         state.streaming = false;
         state.streamingSeen = false;
-        state.maxedOut = false;
-        state.maxCount = Number(msg.maxCount) || 0;
         const f = msg.filters || {};
         messageInput.value = f.message || '';
         branchInput.value = f.branch || '';
@@ -312,12 +308,6 @@
           if (msg.streaming) {
             state.streamingSeen = true;
           }
-        }
-        if (typeof msg.maxedOut === 'boolean') {
-          state.maxedOut = msg.maxedOut;
-        }
-        if (typeof msg.maxCount === 'number' && msg.maxCount > 0) {
-          state.maxCount = msg.maxCount;
         }
         const newCommits = Array.isArray(msg.commits) ? msg.commits : [];
         state.commits = state.commits.concat(newCommits);
@@ -469,9 +459,7 @@
         return;
       }
       let label = 'Matching commits: ' + filtered.length;
-      if (state.maxedOut && state.maxCount > 0) {
-        label += ' (showing latest ' + state.maxCount + ' — raise maxDirectoryTimelineCommits to load more)';
-      } else if (state.hasMore) {
+      if (state.hasMore) {
         label += ' (scroll to load more)';
       } else if (state.streamingSeen) {
         label += ' (all loaded)';

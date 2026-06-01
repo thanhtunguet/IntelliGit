@@ -93,7 +93,7 @@ export class CommitListView {
   appendCommits(
     commits: readonly GraphCommit[],
     hasMore: boolean,
-    opts: { streaming?: boolean; maxedOut?: boolean; maxCount?: number } = {}
+    opts: { streaming?: boolean } = {}
   ): void {
     if (commits.length > 0) {
       this.options = {
@@ -105,9 +105,7 @@ export class CommitListView {
       type: 'appendCommits',
       commits: serializeCommits(commits),
       hasMore,
-      streaming: opts.streaming,
-      maxedOut: opts.maxedOut,
-      maxCount: opts.maxCount
+      streaming: opts.streaming
     });
   }
 

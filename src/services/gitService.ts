@@ -1611,11 +1611,10 @@ export class GitService {
 
   async directoryHistory(
     path: string,
-    maxCount: number,
     onBatch?: (commits: GraphCommit[]) => void
   ): Promise<GraphCommit[]> {
     const format = `%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`;
-    const args = ['log', '--date=iso-strict', '--no-renames', `--max-count=${maxCount}`, `--format=${format}`];
+    const args = ['log', '--date=iso-strict', '--no-renames', `--format=${format}`];
     const normalizedPath = path.trim();
     if (normalizedPath) {
       args.push('--', normalizedPath);
@@ -1634,7 +1633,7 @@ export class GitService {
     onBatch: (commits: GraphCommit[]) => void
   ): Promise<GraphCommit[]> {
     const gitPath = getConfigValue<string>('gitPath', 'git');
-    const timeoutMs = getConfigValue<number>('commandTimeoutMs', 15000);
+    const idleTimeoutMs = getConfigValue<number>('commandTimeoutMs', 15000);
     const command = `${gitPath} ${args.join(' ')}`;
     this.logger.info(`git ${args.join(' ')}`);
 
@@ -1653,6 +1652,26 @@ export class GitService {
       let buffer = '';
       let stderr = '';
       let flushTimer: NodeJS.Timeout | null = null;
+      let idleTimer: NodeJS.Timeout | null = null;
+
+      const clearTimers = (): void => {
+        if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+        if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+      };
+
+      // Idle timeout: only fires when git has produced no output for
+      // `idleTimeoutMs`. A continuously streaming git log never trips it, so
+      // the total wall-clock time is unbounded — fine because we surface
+      // commits as they arrive.
+      const resetIdleTimer = (): void => {
+        if (idleTimer) { clearTimeout(idleTimer); }
+        idleTimer = setTimeout(() => {
+          child.kill();
+          this.logGitDuration(command, startedAt);
+          clearTimers();
+          reject(new Error(`Git command idle for ${idleTimeoutMs}ms: ${command}`));
+        }, idleTimeoutMs);
+      };
 
       const flush = (): void => {
         if (flushTimer) {
@@ -1700,34 +1719,29 @@ export class GitService {
         }
       };
 
-      const timer = setTimeout(() => {
-        child.kill();
-        this.logGitDuration(command, startedAt);
-        if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-        reject(new Error(`Git command timed out after ${timeoutMs}ms: ${command}`));
-      }, timeoutMs);
+      resetIdleTimer();
 
       child.stdout.on('data', (chunk: Buffer) => {
+        resetIdleTimer();
         buffer += chunk.toString();
         consumeBuffer();
       });
 
       child.stderr.on('data', (chunk: Buffer) => {
+        resetIdleTimer();
         stderr += chunk.toString();
       });
 
       child.on('error', (error: Error) => {
-        clearTimeout(timer);
-        if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+        clearTimers();
         this.logGitDuration(command, startedAt);
         reject(error);
       });
 
       child.on('close', (code: number | null) => {
-        clearTimeout(timer);
+        clearTimers();
         this.logGitDuration(command, startedAt);
         if (code !== 0) {
-          if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
           reject(new Error(stderr || `Git command failed with exit code ${code}: ${command}`));
           return;
         }

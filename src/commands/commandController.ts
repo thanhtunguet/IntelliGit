@@ -2368,14 +2368,10 @@ export class CommandController {
   }
 
   private async openDirectoryTimeline(repoRelativePath: string): Promise<void> {
-    const maxCommits = Math.max(
-      1,
-      getConfigValue<number>('maxDirectoryTimelineCommits', 100)
-    );
     const displayPath = repoRelativePath || '.';
     const title = `Directory Timeline: ${displayPath}`;
     const id = `directoryTimeline:${repoRelativePath || '<root>'}`;
-    const hint = `Showing up to ${maxCommits} commits that changed files under ${displayPath}. Filters update the table locally.`;
+    const hint = `Showing commits that changed files under ${displayPath}. Filters update the table locally.`;
     const isInDirectory = (filePath: string): boolean =>
       repoRelativePath === '' || filePath === repoRelativePath || filePath.startsWith(`${repoRelativePath}/`);
     const view = CommitListView.open(
@@ -2404,20 +2400,14 @@ export class CommandController {
       );
     });
 
-    let totalLoaded = 0;
     try {
-      await this.git.directoryHistory(repoRelativePath, maxCommits, (batch) => {
-        totalLoaded += batch.length;
-        view.appendCommits(batch, false, { streaming: true, maxCount: maxCommits });
+      await this.git.directoryHistory(repoRelativePath, (batch) => {
+        view.appendCommits(batch, false, { streaming: true });
       });
-      // Sentinel final message: clears placeholder when the directory had no
-      // matching commits at all, and flips the header out of streaming mode so
-      // the user sees either "(all loaded)" or the "(showing latest N)" hint.
-      view.appendCommits([], false, {
-        streaming: false,
-        maxedOut: totalLoaded >= maxCommits,
-        maxCount: maxCommits
-      });
+      // Sentinel final message: flips the header out of streaming mode so the
+      // user sees the exact total count and clears the loading placeholder
+      // when no commits were produced at all.
+      view.appendCommits([], false, { streaming: false });
     } catch (error) {
       view.setLoading(false);
       throw error;
