@@ -1098,6 +1098,12 @@
           "minimum": 20,
           "description": "Maximum commits shown in Git Graph view."
         },
+        "vscodeGitClient.commitListVirtualizationThreshold": {
+          "type": "number",
+          "default": 200,
+          "minimum": 0,
+          "description": "Enable DOM-row virtualization in commit list webviews (Directory Timeline, branch/tag history, Filter Graph) when the visible row count exceeds this threshold. Set to 0 to disable virtualization entirely."
+        },
         "vscodeGitClient.recentBranchesCount": {
           "type": "number",
           "default": 3,

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getConfigValue } from '../configuration';
 import { handleCommitAction, isCommitActionMessage, type CommitActionMessage } from './commitActions';
 import { collectBranchNames, sanitizeCommitFilters, serializeCommits } from './commitFilterModel';
 import { GraphFilterSnapshot } from './graphFilterSession';
@@ -109,7 +110,8 @@ export class GraphFilterView {
       branches: collectBranchNames(branches),
       commits: serializeCommits(snapshot.commits),
       hasMore: snapshot.hasMore,
-      inputRevision
+      inputRevision,
+      virtThreshold: getConfigValue<number>('commitListVirtualizationThreshold', 200)
     });
   }
 

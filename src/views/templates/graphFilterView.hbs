@@ -160,7 +160,8 @@
       hasMore: false,
       loadMoreErrored: false,
       streaming: false,
-      streamingSeen: false
+      streamingSeen: false,
+      virtThreshold: 200
     };
     const messageInput = document.getElementById('message');
     const branchInput = document.getElementById('branch');
@@ -281,6 +282,9 @@
         state.hasMore = Boolean(msg.hasMore);
         state.streaming = false;
         state.streamingSeen = false;
+        if (typeof msg.virtThreshold === 'number' && msg.virtThreshold >= 0) {
+          state.virtThreshold = msg.virtThreshold;
+        }
         const f = msg.filters || {};
         messageInput.value = f.message || '';
         branchInput.value = f.branch || '';
@@ -467,18 +471,114 @@
       previewHeader.textContent = label;
     }
 
+    // --- Hybrid virtualization ---------------------------------------------
+    // When the filtered commit list exceeds state.virtThreshold (default 200,
+    // configurable via vscodeGitClient.commitListVirtualizationThreshold),
+    // only the rows in (and near) the viewport are mounted in the DOM. Top
+    // and bottom spacer rows occupy the remaining vertical space so the
+    // scrollbar reflects the true list size. Below the threshold the existing
+    // full-render path is used unchanged.
+    //
+    // Limitation: row-level selection state (`.selected`) lives in the DOM,
+    // so rows scrolled out of the virtual window lose their selection. Most
+    // commit actions operate on the row under the cursor or recent clicks,
+    // which stay mounted; cross-window range selection is not supported.
+    const tableWrap = document.querySelector('.preview-table-wrap');
+    const VIRT_BUFFER_ROWS = 8;
+    const FALLBACK_ROW_HEIGHT = 24;
+    let virtRowHeight = 0;
+    let virtScrollListener = null;
+    let virtRafPending = false;
+
+    function isVirtualizationEnabled(filtered) {
+      const threshold = state.virtThreshold;
+      return threshold > 0 && filtered.length > threshold;
+    }
+
+    function measureRowHeight() {
+      if (virtRowHeight > 0) { return virtRowHeight; }
+      const probe = document.createElement('tr');
+      probe.className = 'commit-row';
+      probe.style.visibility = 'hidden';
+      probe.innerHTML = '<td class="col-graph">●</td><td class="col-subject">probe</td><td class="col-author">probe</td><td class="col-date"><span>probe</span></td>';
+      previewBody.appendChild(probe);
+      const rect = probe.getBoundingClientRect();
+      virtRowHeight = rect.height > 0 ? rect.height : FALLBACK_ROW_HEIGHT;
+      previewBody.removeChild(probe);
+      return virtRowHeight;
+    }
+
+    function renderVirtual(filtered) {
+      if (!tableWrap) {
+        previewBody.innerHTML = filtered.map(buildRow).join('');
+        return;
+      }
+      const rh = measureRowHeight();
+      const viewportHeight = tableWrap.clientHeight || rh * 20;
+      const scrollTop = tableWrap.scrollTop;
+      const visibleCount = Math.ceil(viewportHeight / rh) + VIRT_BUFFER_ROWS * 2;
+      const startIndex = Math.max(0, Math.floor(scrollTop / rh) - VIRT_BUFFER_ROWS);
+      const endIndex = Math.min(filtered.length, startIndex + visibleCount);
+      const topPad = startIndex * rh;
+      const bottomPad = Math.max(0, (filtered.length - endIndex) * rh);
+
+      const slice = filtered.slice(startIndex, endIndex);
+      const parts = [];
+      if (topPad > 0) {
+        parts.push('<tr class="virt-spacer" aria-hidden="true"><td colspan="4" style="padding:0;border:0;height:' + topPad + 'px"></td></tr>');
+      }
+      parts.push(slice.map(buildRow).join(''));
+      if (bottomPad > 0) {
+        parts.push('<tr class="virt-spacer" aria-hidden="true"><td colspan="4" style="padding:0;border:0;height:' + bottomPad + 'px"></td></tr>');
+      }
+      previewBody.innerHTML = parts.join('');
+    }
+
+    function attachVirtScrollListener() {
+      if (virtScrollListener || !tableWrap) { return; }
+      virtScrollListener = () => {
+        if (virtRafPending) { return; }
+        virtRafPending = true;
+        const raf = typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame.bind(window)
+          : (cb) => setTimeout(cb, 16);
+        raf(() => {
+          virtRafPending = false;
+          const filtered = getFilteredCommits();
+          if (isVirtualizationEnabled(filtered)) {
+            renderVirtual(filtered);
+          }
+        });
+      };
+      tableWrap.addEventListener('scroll', virtScrollListener, { passive: true });
+    }
+
+    function detachVirtScrollListener() {
+      if (!virtScrollListener || !tableWrap) { return; }
+      tableWrap.removeEventListener('scroll', virtScrollListener);
+      virtScrollListener = null;
+    }
+
     function renderPreview() {
       if (state.loading) {
         previewHeader.textContent = 'Loading commits...';
         previewBody.innerHTML = '<tr><td colspan="4">Loading commits...</td></tr>';
+        detachVirtScrollListener();
         return;
       }
       const filtered = getFilteredCommits();
       updatePreviewHeader();
       if (filtered.length === 0) {
         previewBody.innerHTML = '<tr><td colspan="4">No commits match current filters</td></tr>';
+        detachVirtScrollListener();
         return;
       }
+      if (isVirtualizationEnabled(filtered)) {
+        renderVirtual(filtered);
+        attachVirtScrollListener();
+        return;
+      }
+      detachVirtScrollListener();
       previewBody.innerHTML = filtered.map(buildRow).join('');
     }
 
@@ -489,6 +589,20 @@
     }
 
     function appendRows(newCommits) {
+      const filtered = getFilteredCommits();
+
+      // Switch into (or stay in) virtualization mode once the filtered list
+      // crosses the threshold — incremental DOM appends would defeat
+      // virtualization, so re-render the visible window from scratch.
+      if (isVirtualizationEnabled(filtered)) {
+        renderVirtual(filtered);
+        attachVirtScrollListener();
+        updatePreviewHeader();
+        return;
+      }
+
+      detachVirtScrollListener();
+
       const matchingRows = newCommits.filter(buildMatchPredicate(collect())).map(buildRow);
 
       if (matchingRows.length > 0 && previewBody.querySelector('td[colspan]')) {

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getConfigValue } from '../configuration';
 import { handleCommitAction, isCommitActionMessage, type CommitActionMessage } from './commitActions';
 import { collectBranchNames, serializeCommits } from './commitFilterModel';
 import { renderTemplate } from './templateRenderer';
@@ -114,7 +115,8 @@ export class CommitListView {
       type: 'init',
       filters: {},
       branches: collectBranchNames(this.options.branches),
-      commits: serializeCommits(this.options.commits)
+      commits: serializeCommits(this.options.commits),
+      virtThreshold: getConfigValue<number>('commitListVirtualizationThreshold', 200)
     });
   }
 
