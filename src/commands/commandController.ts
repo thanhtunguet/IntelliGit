@@ -16,6 +16,7 @@ import { StashTreeItem } from '../providers/stashTreeProvider';
 import { WorktreeTreeItem } from '../providers/worktreeTreeProvider';
 import { SubmoduleTreeItem } from '../providers/submoduleTreeProvider';
 import { GitService } from '../services/gitService';
+import { SubmoduleLogSink } from '../services/submoduleLogSink';
 import { expandTemplate, loadTemplates } from '../state/commitTemplates';
 import { StateStore } from '../state/stateStore';
 import { BranchSearchView } from '../views/branchSearchView';
@@ -49,6 +50,72 @@ type GitScmApi = {
 type GitScmExtensionExports = {
   getAPI(version: 1): GitScmApi;
 };
+
+interface WithSubmoduleProgressOptions {
+  title: string;
+  autoShow: boolean;
+  command: string;          // human-readable name for the warning toast, e.g. "Submodule update"
+}
+
+async function withSubmoduleProgress(
+  logger: Logger,
+  options: WithSubmoduleProgressOptions,
+  run: (args: { sink: SubmoduleLogSink; signal: AbortSignal }) => Promise<{ exitCode: number | null }>
+): Promise<{ exitCode: number | null; cancelled: boolean }> {
+  if (options.autoShow) {
+    logger.show(true);
+  }
+  let cancelled = false;
+  const controller = new AbortController();
+
+  const result = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: options.title,
+      cancellable: true
+    },
+    async (progress, token) => {
+      token.onCancellationRequested(() => {
+        cancelled = true;
+        controller.abort();
+      });
+
+      const sink: SubmoduleLogSink = {
+        header(line) { logger.appendRaw(line); },
+        stdout(line) { logger.appendRaw(line); },
+        stderr(line) {
+          logger.appendRaw(line);
+          progress.report({ message: line });
+        },
+        done(exitCode, durationMs) {
+          const secs = (durationMs / 1000).toFixed(1);
+          if (cancelled) {
+            logger.appendRaw(`[cancelled after ${secs}s]`);
+          } else {
+            logger.appendRaw(`[done in ${secs}s, exit ${exitCode}]`);
+          }
+        },
+        error(err) {
+          logger.appendRaw(`[error] ${err.message}`);
+        }
+      };
+
+      return run({ sink, signal: controller.signal });
+    }
+  );
+
+  if (!cancelled && result.exitCode !== 0) {
+    const action = await vscode.window.showWarningMessage(
+      `${options.command} failed; see Output for details.`,
+      'Show Output'
+    );
+    if (action === 'Show Output') {
+      logger.show(true);
+    }
+  }
+
+  return { exitCode: result.exitCode, cancelled };
+}
 
 export class CommandController {
   constructor(
@@ -2182,13 +2249,36 @@ export class CommandController {
     register('vscodeGitClient.submodule.init', async (arg?: unknown) => {
       const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
       if (!item) { return; }
-      await this.git.initSubmodule(item.submodule.path);
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Initializing submodule ${item.submodule.path}…`,
+            autoShow: false,
+            command: 'Submodule init'
+          },
+          ({ sink, signal }) => this.git.initSubmodule(item.submodule.path, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.initAll', async () => {
-      await this.git.initAllSubmodules();
-      await this.state.refreshSubmodules();
+      const count = this.state.submodules.length;
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Initializing ${count} submodule(s)…`,
+            autoShow: true,
+            command: 'Submodule init (all)'
+          },
+          ({ sink, signal }) => this.git.initAllSubmodules({ sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.update', async (arg?: unknown) => {
@@ -2204,8 +2294,19 @@ export class CommandController {
         if (!confirmed) { return; }
       }
 
-      await this.git.updateSubmodule(item.submodule.path);
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Updating submodule ${item.submodule.path}…`,
+            autoShow: false,
+            command: 'Submodule update'
+          },
+          ({ sink, signal }) => this.git.updateSubmodule(item.submodule.path, false, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.updateAll', async () => {
@@ -2219,10 +2320,19 @@ export class CommandController {
         });
         if (!confirmed) { return; }
       }
-
-      void vscode.window.showInformationMessage(`Updating ${submodules.length} submodule(s)…`);
-      await this.git.updateAllSubmodules();
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Updating ${submodules.length} submodule(s)…`,
+            autoShow: true,
+            command: 'Submodule update (all)'
+          },
+          ({ sink, signal }) => this.git.updateAllSubmodules(false, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.updateRecursive', async () => {
@@ -2236,22 +2346,54 @@ export class CommandController {
         acceptLabel: 'Update Recursive'
       });
       if (!confirmed) { return; }
-
-      void vscode.window.showInformationMessage(`Recursively updating ${submodules.length} submodule(s)…`);
-      await this.git.updateAllSubmodules(true);
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Recursively updating ${submodules.length} submodule(s)…`,
+            autoShow: true,
+            command: 'Submodule update (recursive)'
+          },
+          ({ sink, signal }) => this.git.updateAllSubmodules(true, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.sync', async (arg?: unknown) => {
       const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
       if (!item) { return; }
-      await this.git.syncSubmodule(item.submodule.path);
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Syncing submodule ${item.submodule.path}…`,
+            autoShow: false,
+            command: 'Submodule sync'
+          },
+          ({ sink, signal }) => this.git.syncSubmodule(item.submodule.path, false, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.syncAll', async () => {
-      await this.git.syncSubmodule(undefined, true);
-      await this.state.refreshSubmodules();
+      const count = this.state.submodules.length;
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Syncing ${count} submodule(s)…`,
+            autoShow: true,
+            command: 'Submodule sync (all)'
+          },
+          ({ sink, signal }) => this.git.syncSubmodule(undefined, true, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.open', async (arg?: unknown) => {
@@ -2279,15 +2421,37 @@ export class CommandController {
     register('vscodeGitClient.submodule.checkoutRecorded', async (arg?: unknown) => {
       const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
       if (!item) { return; }
-      await this.git.checkoutRecordedSubmoduleCommit(item.submodule.path);
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Checking out recorded commit for ${item.submodule.path}…`,
+            autoShow: false,
+            command: 'Submodule checkout recorded'
+          },
+          ({ sink, signal }) => this.git.checkoutRecordedSubmoduleCommit(item.submodule.path, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.pullTrackedBranch', async (arg?: unknown) => {
       const item = arg instanceof SubmoduleTreeItem ? arg : undefined;
       if (!item) { return; }
-      await this.git.pullSubmoduleTrackedBranch(item.submodule.path);
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Pulling tracked branch in ${item.submodule.path}…`,
+            autoShow: false,
+            command: 'Submodule pull'
+          },
+          ({ sink, signal }) => this.git.pullSubmoduleTrackedBranch(item.submodule.path, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
 
     register('vscodeGitClient.submodule.diffPointer', async (arg?: unknown) => {
@@ -2329,8 +2493,19 @@ export class CommandController {
         if (!confirmed) { return; }
       }
 
-      await this.git.deinitSubmodule(item.submodule.path, item.submodule.isDirty);
-      await this.state.refreshSubmodules();
+      try {
+        await withSubmoduleProgress(
+          this.logger,
+          {
+            title: `Deiniting submodule ${item.submodule.path}…`,
+            autoShow: false,
+            command: 'Submodule deinit'
+          },
+          ({ sink, signal }) => this.git.deinitSubmodule(item.submodule.path, item.submodule.isDirty, { sink, signal })
+        );
+      } finally {
+        await this.state.refreshSubmodules();
+      }
     });
   }
 

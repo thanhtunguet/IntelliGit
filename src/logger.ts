@@ -20,6 +20,11 @@ export class Logger {
     }
   }
 
+  /** Write a line verbatim, with no severity prefix. Used for streamed git output. */
+  appendRaw(line: string): void {
+    this.channel.appendLine(line);
+  }
+
   show(preserveFocus = true): void {
     this.channel.show(preserveFocus);
   }
