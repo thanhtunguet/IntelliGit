@@ -18,8 +18,7 @@ class FakeSubmoduleService extends SubmoduleService {
     );
   }
 
-  // Override the private wrapper. Cast through unknown to bypass private access in tests.
-  override async ['spawnGitStreaming'](
+  protected override async spawnGitStreaming(
     args: string[],
     options: { cwd?: string; sink?: SubmoduleLogSink }
   ): Promise<{ exitCode: number | null }> {

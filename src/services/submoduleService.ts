@@ -123,6 +123,10 @@ export class SubmoduleService {
     private readonly runGit: (args: string[]) => Promise<GitCommandResult>
   ) {}
 
+  /**
+   * Protected only to allow test subclasses to intercept spawn calls.
+   * Do not call from production subclasses.
+   */
   protected spawnGitStreaming(
     args: string[],
     options: { cwd?: string; sink?: SubmoduleLogSink; signal?: AbortSignal }
