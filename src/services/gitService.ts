@@ -27,7 +27,8 @@ import {
   WorktreeStatus,
   SubmoduleEntry
 } from '../types';
-import { SubmoduleService } from './submoduleService';
+import { SubmoduleService, SpawnGitStreamingResult } from './submoduleService';
+import { SubmoduleLogSink } from './submoduleLogSink';
 import { parseWorktreeListPorcelain, parseWorktreePruneDryRun } from './worktreeParsing';
 import { parseTrack, parseNameStatusZ, parsePorcelainStatusZ } from './gitParsing';
 import {
@@ -1893,36 +1894,62 @@ export class GitService {
     return this.submoduleSvc.getSubmodules();
   }
 
-  async initSubmodule(submodulePath: string): Promise<void> {
-    return this.submoduleSvc.initSubmodule(submodulePath);
+  async initSubmodule(
+    submodulePath: string,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.initSubmodule(submodulePath, opts);
   }
 
-  async initAllSubmodules(): Promise<void> {
-    return this.submoduleSvc.initAllSubmodules();
+  async initAllSubmodules(
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.initAllSubmodules(opts);
   }
 
-  async updateSubmodule(submodulePath: string, recursive = false): Promise<void> {
-    return this.submoduleSvc.updateSubmodule(submodulePath, recursive);
+  async updateSubmodule(
+    submodulePath: string,
+    recursive = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.updateSubmodule(submodulePath, recursive, opts);
   }
 
-  async updateAllSubmodules(recursive = false): Promise<void> {
-    return this.submoduleSvc.updateAllSubmodules(recursive);
+  async updateAllSubmodules(
+    recursive = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.updateAllSubmodules(recursive, opts);
   }
 
-  async syncSubmodule(submodulePath?: string, recursive = false): Promise<void> {
-    return this.submoduleSvc.syncSubmodule(submodulePath, recursive);
+  async syncSubmodule(
+    submodulePath?: string,
+    recursive = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.syncSubmodule(submodulePath, recursive, opts);
   }
 
-  async deinitSubmodule(submodulePath: string, force = false): Promise<void> {
-    return this.submoduleSvc.deinitSubmodule(submodulePath, force);
+  async deinitSubmodule(
+    submodulePath: string,
+    force = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.deinitSubmodule(submodulePath, force, opts);
   }
 
-  async checkoutRecordedSubmoduleCommit(submodulePath: string): Promise<void> {
-    return this.submoduleSvc.checkoutRecordedSubmoduleCommit(submodulePath);
+  async checkoutRecordedSubmoduleCommit(
+    submodulePath: string,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.checkoutRecordedSubmoduleCommit(submodulePath, opts);
   }
 
-  async pullSubmoduleTrackedBranch(submodulePath: string): Promise<void> {
-    return this.submoduleSvc.pullSubmoduleTrackedBranch(submodulePath);
+  async pullSubmoduleTrackedBranch(
+    submodulePath: string,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    return this.submoduleSvc.pullSubmoduleTrackedBranch(submodulePath, opts);
   }
 
   async getSubmodulePointerDiff(submodulePath: string): Promise<string> {

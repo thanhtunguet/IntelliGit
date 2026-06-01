@@ -123,7 +123,7 @@ export class SubmoduleService {
     private readonly runGit: (args: string[]) => Promise<GitCommandResult>
   ) {}
 
-  private spawnGitStreaming(
+  protected spawnGitStreaming(
     args: string[],
     options: { cwd?: string; sink?: SubmoduleLogSink; signal?: AbortSignal }
   ): Promise<SpawnGitStreamingResult> {
@@ -190,47 +190,85 @@ export class SubmoduleService {
     }
   }
 
-  async initSubmodule(submodulePath: string): Promise<void> {
-    await this.runGit(['submodule', 'init', '--', submodulePath]);
+  async initSubmodule(
+    submodulePath: string,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    const args = ['submodule', 'init', '--', submodulePath];
+    opts.sink?.header(`$ git ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, opts);
   }
 
-  async initAllSubmodules(): Promise<void> {
-    await this.runGit(['submodule', 'init']);
+  async initAllSubmodules(
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    const args = ['submodule', 'init'];
+    opts.sink?.header(`$ git ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, opts);
   }
 
-  async updateSubmodule(submodulePath: string, recursive = false): Promise<void> {
+  async updateSubmodule(
+    submodulePath: string,
+    recursive = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
     const args = ['submodule', 'update', '--init'];
     if (recursive) { args.push('--recursive'); }
     args.push('--', submodulePath);
-    await this.runGit(args);
+    opts.sink?.header(`$ git ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, opts);
   }
 
-  async updateAllSubmodules(recursive = false): Promise<void> {
+  async updateAllSubmodules(
+    recursive = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
     const args = ['submodule', 'update', '--init'];
     if (recursive) { args.push('--recursive'); }
-    await this.runGit(args);
+    opts.sink?.header(`$ git ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, opts);
   }
 
-  async syncSubmodule(submodulePath?: string, recursive = false): Promise<void> {
+  async syncSubmodule(
+    submodulePath?: string,
+    recursive = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
     const args = ['submodule', 'sync'];
     if (recursive) { args.push('--recursive'); }
     if (submodulePath) { args.push('--', submodulePath); }
-    await this.runGit(args);
+    opts.sink?.header(`$ git ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, opts);
   }
 
-  async deinitSubmodule(submodulePath: string, force = false): Promise<void> {
+  async deinitSubmodule(
+    submodulePath: string,
+    force = false,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
     const args = ['submodule', 'deinit'];
     if (force) { args.push('-f'); }
     args.push('--', submodulePath);
-    await this.runGit(args);
+    opts.sink?.header(`$ git ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, opts);
   }
 
-  async checkoutRecordedSubmoduleCommit(submodulePath: string): Promise<void> {
-    await this.runGit(['submodule', 'update', '--', submodulePath]);
+  async checkoutRecordedSubmoduleCommit(
+    submodulePath: string,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    const args = ['submodule', 'update', '--', submodulePath];
+    opts.sink?.header(`$ git ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, opts);
   }
 
-  async pullSubmoduleTrackedBranch(submodulePath: string): Promise<void> {
-    await this.runGitAt(submodulePath, ['pull']);
+  async pullSubmoduleTrackedBranch(
+    submodulePath: string,
+    opts: { sink?: SubmoduleLogSink; signal?: AbortSignal } = {}
+  ): Promise<SpawnGitStreamingResult> {
+    const args = ['pull'];
+    opts.sink?.header(`$ git -C ${submodulePath} ${args.join(' ')}`);
+    return this.spawnGitStreaming(args, { ...opts, cwd: submodulePath });
   }
 
   async getSubmodulePointerDiff(submodulePath: string): Promise<string> {
