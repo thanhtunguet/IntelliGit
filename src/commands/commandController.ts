@@ -2368,7 +2368,10 @@ export class CommandController {
   }
 
   private async openDirectoryTimeline(repoRelativePath: string): Promise<void> {
-    const maxCommits = Math.max(1, getConfigValue<number>('maxGraphCommits', 200));
+    const maxCommits = Math.max(
+      1,
+      getConfigValue<number>('maxDirectoryTimelineCommits', 100)
+    );
     const displayPath = repoRelativePath || '.';
     const title = `Directory Timeline: ${displayPath}`;
     const id = `directoryTimeline:${repoRelativePath || '<root>'}`;
@@ -2391,18 +2394,27 @@ export class CommandController {
     );
 
     view.setLoading(true);
+
+    // Refresh branches in the background — the view already shows the cached
+    // list from state.branches, and we don't want to block the slow path-filtered
+    // git log on it.
+    void this.state.refreshBranches().catch((error) => {
+      this.logger.info(
+        `directoryTimeline: refreshBranches failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    });
+
     try {
-      await this.state.refreshBranches();
-      const commits = await this.git.directoryHistory(repoRelativePath, maxCommits);
-      view.update({
-        id,
-        title,
-        hint,
-        branches: this.state.branches,
-        commits
+      await this.git.directoryHistory(repoRelativePath, maxCommits, (batch) => {
+        view.appendCommits(batch, false);
       });
-    } finally {
+      // Final flush so the webview clears the "Loading commits..." placeholder
+      // (and shows "No commits match current filters") when no commits were
+      // produced at all.
+      view.appendCommits([], false);
+    } catch (error) {
       view.setLoading(false);
+      throw error;
     }
   }
 

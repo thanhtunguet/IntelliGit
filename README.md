@@ -60,7 +60,7 @@ Tags appear with branches and support checkout, checkout-new-branch, copy revisi
 
 Open `Git Graph` for a tree-style commit list with refs, author/date metadata, subject-first titles, short hashes, and expandable changed files. When there are more commits beyond the current page, a "Load More..." item appears at the bottom of the tree; click it to load the next page. The `maxGraphCommits` setting controls how many commits load per page (default 200).
 
-Right-click a folder in Explorer and choose `Open Directory Timeline` to list commits that changed any nested child file under that folder. The timeline opens in the same commit-list surface as branch and tag histories, so commit details and file diffs work the same way.
+Right-click a folder in Explorer and choose `Open Directory Timeline` to list commits that changed any nested child file under that folder. The timeline opens in the same commit-list surface as branch and tag histories, so commit details and file diffs work the same way. Commits stream into the view as `git log` produces them, so the first matching commits appear almost immediately on large repositories. Tune `vscodeGitClient.maxDirectoryTimelineCommits` (default `100`) to change how many commits the timeline loads.
 
 From a commit you can:
 

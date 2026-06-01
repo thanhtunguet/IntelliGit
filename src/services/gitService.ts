@@ -1609,15 +1609,140 @@ export class GitService {
     return parseGraphRows(result.stdout);
   }
 
-  async directoryHistory(path: string, maxCount: number): Promise<GraphCommit[]> {
+  async directoryHistory(
+    path: string,
+    maxCount: number,
+    onBatch?: (commits: GraphCommit[]) => void
+  ): Promise<GraphCommit[]> {
     const format = `%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`;
-    const args = ['log', '--date=iso-strict', `--max-count=${maxCount}`, `--format=${format}`];
+    const args = ['log', '--date=iso-strict', '--no-renames', `--max-count=${maxCount}`, `--format=${format}`];
     const normalizedPath = path.trim();
     if (normalizedPath) {
       args.push('--', normalizedPath);
     }
-    const result = await this.runGit(args);
-    return parseGraphRows(result.stdout);
+
+    if (!onBatch) {
+      const result = await this.runGit(args);
+      return parseGraphRows(result.stdout);
+    }
+
+    return this.streamLogRecords(args, onBatch);
+  }
+
+  private streamLogRecords(
+    args: string[],
+    onBatch: (commits: GraphCommit[]) => void
+  ): Promise<GraphCommit[]> {
+    const gitPath = getConfigValue<string>('gitPath', 'git');
+    const timeoutMs = getConfigValue<number>('commandTimeoutMs', 15000);
+    const command = `${gitPath} ${args.join(' ')}`;
+    this.logger.info(`git ${args.join(' ')}`);
+
+    const BATCH_SIZE = 25;
+    const FLUSH_INTERVAL_MS = 80;
+
+    return this.gitCommandQueue.run(() => new Promise<GraphCommit[]>((resolve, reject) => {
+      const startedAt = Date.now();
+      const child = cp.spawn(gitPath, args, {
+        cwd: this.gitRoot,
+        windowsHide: true
+      });
+
+      const all: GraphCommit[] = [];
+      let pending: GraphCommit[] = [];
+      let buffer = '';
+      let stderr = '';
+      let flushTimer: NodeJS.Timeout | null = null;
+
+      const flush = (): void => {
+        if (flushTimer) {
+          clearTimeout(flushTimer);
+          flushTimer = null;
+        }
+        if (pending.length === 0) {
+          return;
+        }
+        const batch = pending;
+        pending = [];
+        all.push(...batch);
+        try {
+          onBatch(batch);
+        } catch (err) {
+          this.logger.info(`directoryHistory onBatch error: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      };
+
+      const scheduleFlush = (): void => {
+        if (pending.length >= BATCH_SIZE) {
+          flush();
+          return;
+        }
+        if (flushTimer === null) {
+          flushTimer = setTimeout(flush, FLUSH_INTERVAL_MS);
+        }
+      };
+
+      const consumeBuffer = (): void => {
+        let sepIndex = buffer.indexOf(RECORD_SEPARATOR);
+        while (sepIndex !== -1) {
+          const record = buffer.slice(0, sepIndex).trim();
+          buffer = buffer.slice(sepIndex + RECORD_SEPARATOR.length);
+          if (record) {
+            const parsed = parseGraphRows(record + RECORD_SEPARATOR);
+            if (parsed.length > 0) {
+              pending.push(...parsed);
+            }
+          }
+          sepIndex = buffer.indexOf(RECORD_SEPARATOR);
+        }
+        if (pending.length > 0) {
+          scheduleFlush();
+        }
+      };
+
+      const timer = setTimeout(() => {
+        child.kill();
+        this.logGitDuration(command, startedAt);
+        if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+        reject(new Error(`Git command timed out after ${timeoutMs}ms: ${command}`));
+      }, timeoutMs);
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString();
+        consumeBuffer();
+      });
+
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+
+      child.on('error', (error: Error) => {
+        clearTimeout(timer);
+        if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+        this.logGitDuration(command, startedAt);
+        reject(error);
+      });
+
+      child.on('close', (code: number | null) => {
+        clearTimeout(timer);
+        this.logGitDuration(command, startedAt);
+        if (code !== 0) {
+          if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+          reject(new Error(stderr || `Git command failed with exit code ${code}: ${command}`));
+          return;
+        }
+        // Drain any trailing record without a separator (defensive — format ends with separator).
+        const tail = buffer.trim();
+        if (tail) {
+          const parsed = parseGraphRows(tail + RECORD_SEPARATOR);
+          if (parsed.length > 0) {
+            pending.push(...parsed);
+          }
+        }
+        flush();
+        resolve(all);
+      });
+    }));
   }
 
   async fileBlame(path: string): Promise<string> {

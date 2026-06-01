@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "VS Code Git Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows.",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "publisher": "thanhtunguet",
   "icon": "media/vscodegitclient.png",
   "main": "./dist/extension.js",
@@ -1097,6 +1097,12 @@
           "default": 200,
           "minimum": 20,
           "description": "Maximum commits shown in Git Graph view."
+        },
+        "vscodeGitClient.maxDirectoryTimelineCommits": {
+          "type": "number",
+          "default": 100,
+          "minimum": 20,
+          "description": "Maximum commits shown in the Directory Timeline view."
         },
         "vscodeGitClient.recentBranchesCount": {
           "type": "number",

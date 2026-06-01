@@ -90,6 +90,20 @@ export class CommitListView {
     this.postInitial();
   }
 
+  appendCommits(commits: readonly GraphCommit[], hasMore: boolean): void {
+    if (commits.length > 0) {
+      this.options = {
+        ...this.options,
+        commits: [...this.options.commits, ...commits]
+      };
+    }
+    void this.panel.webview.postMessage({
+      type: 'appendCommits',
+      commits: serializeCommits(commits),
+      hasMore
+    });
+  }
+
   private postInitial(): void {
     void this.panel.webview.postMessage({
       type: 'init',
