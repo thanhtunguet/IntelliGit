@@ -52,7 +52,7 @@ export function spawnGitStreaming(
 
     let child: cp.ChildProcessWithoutNullStreams;
     try {
-      child = cp.spawn(execPath, args, { cwd: fullCwd, windowsHide: true });
+      child = cp.spawn(execPath, args, { cwd: fullCwd, stdio: 'pipe', windowsHide: true });
     } catch (err) {
       sink.error(err instanceof Error ? err : new Error(String(err)));
       settle(null);
