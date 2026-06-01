@@ -10,6 +10,109 @@ import {
 } from '../types';
 import { GitCommandQueue } from './gitCommandQueue';
 import { parseSubmoduleConfig, parseSubmoduleStatus } from './submoduleParsing';
+import { SubmoduleLogSink, NULL_SINK } from './submoduleLogSink';
+
+export interface SpawnGitStreamingOptions {
+  gitRoot: string;
+  cwd?: string;          // resolved via resolveSubmoduleCwd when provided
+  sink: SubmoduleLogSink;
+  signal?: AbortSignal;
+}
+
+export interface SpawnGitStreamingResult {
+  exitCode: number | null;
+}
+
+/**
+ * Spawn a git invocation with no timeout, line-buffered stdout/stderr
+ * forwarded through the sink, and AbortSignal-based cancellation.
+ *
+ * - Never rejects on non-zero exit; caller checks exitCode.
+ * - The exec name (`gitPath`) is passed explicitly so tests can substitute `node -e ...`.
+ * - sink.header is NOT called by this helper — the caller writes the header so it can
+ *   show the user a human-readable command line (with `--`, paths, etc.).
+ */
+export function spawnGitStreaming(
+  execPath: string,
+  args: string[],
+  options: SpawnGitStreamingOptions
+): Promise<SpawnGitStreamingResult> {
+  const { gitRoot, cwd, sink, signal } = options;
+  const fullCwd = cwd ? resolveSubmoduleCwd(gitRoot, cwd) : gitRoot;
+  const startedAt = Date.now();
+
+  return new Promise<SpawnGitStreamingResult>((resolve) => {
+    let settled = false;
+    const settle = (exitCode: number | null) => {
+      if (settled) { return; }
+      settled = true;
+      sink.done(exitCode, Date.now() - startedAt);
+      resolve({ exitCode });
+    };
+
+    let child: cp.ChildProcessWithoutNullStreams;
+    try {
+      child = cp.spawn(execPath, args, { cwd: fullCwd, windowsHide: true });
+    } catch (err) {
+      sink.error(err instanceof Error ? err : new Error(String(err)));
+      settle(null);
+      return;
+    }
+
+    const stdoutBuf = makeLineBuffer((line) => sink.stdout(line));
+    const stderrBuf = makeLineBuffer((line) => sink.stderr(line));
+
+    child.stdout.on('data', (chunk: Buffer) => stdoutBuf.push(chunk.toString()));
+    child.stderr.on('data', (chunk: Buffer) => stderrBuf.push(chunk.toString()));
+    child.on('error', (err: Error) => {
+      sink.error(err);
+      settle(null);
+    });
+    child.on('close', (code: number | null) => {
+      stdoutBuf.flush();
+      stderrBuf.flush();
+      settle(code);
+    });
+
+    if (signal) {
+      const abort = () => { try { child.kill(); } catch { /* already exited */ } };
+      if (signal.aborted) { abort(); }
+      else { signal.addEventListener('abort', abort, { once: true }); }
+    }
+  });
+}
+
+/**
+ * Splits a stream of incoming string chunks into newline-delimited lines,
+ * forwarding each completed line via `onLine`. Carriage-return-only progress
+ * redraws inside a single line segment are collapsed to the last segment.
+ */
+function makeLineBuffer(onLine: (line: string) => void) {
+  let pending = '';
+  const emit = (segment: string) => {
+    // segment ends at \n, so collapse \r-only redraws inside it.
+    const parts = segment.split('\r');
+    const last = parts[parts.length - 1];
+    if (last.length > 0) { onLine(last); }
+  };
+  return {
+    push(chunk: string) {
+      pending += chunk;
+      let idx = pending.indexOf('\n');
+      while (idx !== -1) {
+        emit(pending.slice(0, idx));
+        pending = pending.slice(idx + 1);
+        idx = pending.indexOf('\n');
+      }
+    },
+    flush() {
+      if (pending.length > 0) {
+        emit(pending);
+        pending = '';
+      }
+    }
+  };
+}
 
 export class SubmoduleService {
   private readonly gitCommandQueue = new GitCommandQueue(process.platform === 'win32' ? 2 : 4);
@@ -19,6 +122,19 @@ export class SubmoduleService {
     private readonly gitRoot: string,
     private readonly runGit: (args: string[]) => Promise<GitCommandResult>
   ) {}
+
+  private spawnGitStreaming(
+    args: string[],
+    options: { cwd?: string; sink?: SubmoduleLogSink; signal?: AbortSignal }
+  ): Promise<SpawnGitStreamingResult> {
+    const gitPath = getConfigValue<string>('gitPath', 'git');
+    return spawnGitStreaming(gitPath, args, {
+      gitRoot: this.gitRoot,
+      cwd: options.cwd,
+      sink: options.sink ?? NULL_SINK,
+      signal: options.signal
+    });
+  }
 
   async getSubmodules(): Promise<SubmoduleEntry[]> {
     const [statusEntries, configEntries] = await Promise.all([
